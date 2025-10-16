@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/collabflow
-    username: postgres
-    password: root
+    username: zakaria
+    password: zakaria
   jpa:
     hibernate:
       ddl-auto: validate
