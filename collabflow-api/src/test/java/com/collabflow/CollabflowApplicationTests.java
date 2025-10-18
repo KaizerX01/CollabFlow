@@ -1,4 +1,4 @@
-package com.collabflow.collabflow;
+package com.collabflow;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
