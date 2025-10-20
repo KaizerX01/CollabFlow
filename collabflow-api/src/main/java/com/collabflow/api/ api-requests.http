@@ -1,0 +1,18 @@
+### Register User
+POST http://localhost:9090/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "email": "alice@example.com",
+  "password": "Password123"
+}
+
+### OR Login
+POST http://localhost:9090/api/auth/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "alice@example.com",
+  "password": "Password123"
+}

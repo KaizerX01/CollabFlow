@@ -1,16 +1,20 @@
 package com.collabflow.domain.user.dto;
 
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Data
 public class AuthResponse {
     private String accessToken;
     private String refreshToken;
     private String tokenType = "Bearer";
+
+    // Custom constructor for access token only (refresh in cookie)
+    public AuthResponse(String accessToken) {
+        this.accessToken = accessToken;
+        this.tokenType = "Bearer";
+    }
 }
