@@ -18,3 +18,6 @@ app:
   jwtSecret: L8f9kP2mQ5xN7vW3jR6bY9tU4sH1gD0cE+mN8pL2oK5qX7vY=
   jwtExpirationMs: 3600000
   jwtRefreshExpirationMs: 2592000000  # 30 days
+
+
+
