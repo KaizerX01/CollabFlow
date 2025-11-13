@@ -53,8 +53,8 @@ const onLogin = async (data: LoginFormData) => {
 
     const res = await loginMutation.mutateAsync(data);
 
-    localStorage.setItem("access_token", res.access_token);
-    localStorage.setItem("refresh_token", res.refresh_token);
+    localStorage.setItem("access_token", res.accessToken);
+    localStorage.setItem("refresh_token", res.refreshToken);
 
     toast.success("Login successful! Redirecting...", { duration: 4000 });
     setTimeout(() => (window.location.href = "/dashboard"), 1500);

@@ -23,18 +23,50 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String path = request.getRequestURI();
+
+        System.out.println("🌐 Incoming request: " + path);
+
         if (path.startsWith("/api/auth/") || path.startsWith("/actuator/")) {
+            System.out.println("✅ Bypassing JWT filter for: " + path);
             filterChain.doFilter(request, response);
             return;
         }
+
         String jwt = parseJwt(request);
-        if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
-            String username = jwtUtils.getUsernameFromJwt(jwt);
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-            UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-            SecurityContextHolder.getContext().setAuthentication(auth);
+        System.out.println("🔑 JWT Token present: " + (jwt != null));
+
+        if (jwt != null) {
+            boolean isValid = jwtUtils.validateJwtToken(jwt);
+            System.out.println("✔️ JWT Valid: " + isValid);
+
+            if (isValid) {
+                try {
+                    String username = jwtUtils.getUsernameFromJwt(jwt);
+                    System.out.println("👤 Username from JWT: " + username);
+
+                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                    System.out.println("📋 Authorities: " + userDetails.getAuthorities());
+
+                    UsernamePasswordAuthenticationToken auth =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
+
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                    System.out.println("✅ Authentication set successfully!");
+
+                } catch (Exception e) {
+                    System.err.println("❌ Error setting authentication: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
         }
+
+        System.out.println("🔓 Current authentication: " +
+                SecurityContextHolder.getContext().getAuthentication());
+
         filterChain.doFilter(request, response);
     }
 
@@ -45,4 +77,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
         return null;
     }
+
+
 }

@@ -37,7 +37,6 @@ public class TeamMembership {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Size(max = 30)
     @NotNull
     @Column(name = "role", nullable = false, length = 30)
     @Enumerated(EnumType.STRING)

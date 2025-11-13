@@ -62,14 +62,16 @@ public class JwtUtils {
 
     // === VALIDATION ===
     public boolean validateJwtToken(String token) {
-        return validateToken(token);
-    }
-
-    public boolean validateRefreshToken(String token) {
         try {
             Claims claims = parseClaims(token);
-            return "refresh".equals(claims.get("type")) && !isExpired(claims);
+            boolean notExpired = !isExpired(claims);
+            System.out.println("🔍 Token validation - Not expired: " + notExpired);
+            System.out.println("🔍 Token expiration: " + claims.getExpiration());
+            System.out.println("🔍 Current time: " + new Date());
+            return notExpired;
         } catch (JwtException e) {
+            System.err.println("❌ JWT Exception: " + e.getMessage());
+            e.printStackTrace();
             return false;
         }
     }

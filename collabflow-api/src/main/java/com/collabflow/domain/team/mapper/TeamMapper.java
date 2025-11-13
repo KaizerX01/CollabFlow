@@ -1,4 +1,11 @@
 package com.collabflow.domain.team.mapper;
 
+
+import com.collabflow.domain.team.dto.TeamResponse;
+import com.collabflow.domain.team.model.Team;
+import org.mapstruct.Mapper;
+
+@Mapper(componentModel = "spring")
 public interface TeamMapper {
+    TeamResponse toDto(Team team);
 }

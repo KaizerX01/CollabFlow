@@ -1,0 +1,108 @@
+### Variables
+@baseUrl = http://localhost:9090
+@contentType = application/json
+
+### 1. Login to get JWT token
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "usernameOrEmail": "alice@example.com",
+  "password": "Password123"
+}
+
+> {%
+    client.global.set("auth_token", response.body.accessToken);
+%}
+
+### 2. Get all teams for user
+GET {{baseUrl}}/api/team
+Authorization: Bearer {{auth_token}}
+
+### 3. Create a new team
+POST {{baseUrl}}/api/team
+Content-Type: {{contentType}}
+Authorization: Bearer {{auth_token}}
+
+{
+  "name": "Development Team",
+  "description": "Team for software development projects"
+}
+
+> {%
+    client.global.set("id", response.body.id);
+%}
+
+### 4. Create another team
+POST {{baseUrl}}/api/team
+Content-Type: {{contentType}}
+Authorization: Bearer {{auth_token}}
+
+{
+  "name": "Marketing Team",
+  "description": "Team for marketing campaigns"
+}
+
+### 5. Get team members
+GET {{baseUrl}}/api/team/{{id}}/members
+Authorization: Bearer {{auth_token}}
+
+### 6. Update a team
+PATCH {{baseUrl}}/api/team/{{id}}
+Content-Type: {{contentType}}
+Authorization: Bearer {{auth_token}}
+
+{
+  "name": "Development Team Updated",
+  "description": "Updated description for dev team"
+}
+
+### 7. Get all teams again (should see updates)
+GET {{baseUrl}}/api/team
+Authorization: Bearer {{auth_token}}
+
+### 8. Delete a team
+DELETE {{baseUrl}}/api/team/{{id}}
+Authorization: Bearer {{auth_token}}
+
+### 9. Get all teams after deletion
+GET {{baseUrl}}/api/team
+Authorization: Bearer {{auth_token}}
+
+### 10. Test - Try to update non-existent team (should return 400)
+PATCH {{baseUrl}}/api/team/00000000-0000-0000-0000-000000000000
+Content-Type: {{contentType}}
+Authorization: Bearer {{auth_token}}
+
+{
+  "name": "Non-existent Team",
+  "description": "This should fail"
+}
+
+### 11. Test - Try to delete non-existent team (should return 400)
+DELETE {{baseUrl}}/api/team/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{auth_token}}
+
+### 12. Test - Get members of non-existent team (should return 400)
+GET {{baseUrl}}/api/team/00000000-0000-0000-0000-000000000000/members
+Authorization: Bearer {{auth_token}}
+
+### 13. Test - Missing authorization header (should return 401)
+GET {{baseUrl}}/api/team
+
+### 14. Test - Invalid token (should return 401)
+GET {{baseUrl}}/api/team
+Authorization: Bearer invalid_token_here
+
+
+### 15. Create invite link
+POST {{baseUrl}}/api/team/{{id}}/invite
+Authorization: Bearer {{auth_token}}
+
+> {%
+    client.global.set("invite_token", response.body.inviteLink.split('/').pop());
+%}
+
+### 16 . Join team via invite (login as different user first)
+POST {{baseUrl}}/api/team/join/{{invite_token}}
+Authorization: Bearer {{auth_token}}

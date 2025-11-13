@@ -19,7 +19,7 @@ import java.util.UUID;
 @Table(name = "team_invites")
 public class TeamInvite {
     @Id
-    @ColumnDefault("gen_random_uuid()")
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private UUID id;
 
@@ -47,11 +47,9 @@ public class TeamInvite {
     @NotNull
     @ColumnDefault("true")
     @Column(name = "is_active", nullable = false)
-    private Boolean isActive = false;
+    private Boolean isActive = true;
 
-    @NotNull
-    @ColumnDefault("CURRENT_TIMESTAMP")
-    @Column(name = "created_at", nullable = false)
+    @ColumnDefault("now()")
+    @Column(name = "created_at")
     private Instant createdAt;
-
 }
