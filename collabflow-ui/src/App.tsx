@@ -5,6 +5,7 @@ import { TeamsList } from './pages/TeamsList';
 import { TeamDetails } from './pages/TeamDetails';
 import { InviteAccept } from './pages/InviteAccept';
 import AuthForm from './components/auth/AuthForm';
+import { AuthProvider } from './context/AuthContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -17,6 +18,7 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
+    <AuthProvider >
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
         <BrowserRouter>
@@ -30,6 +32,7 @@ function App() {
         </BrowserRouter>
       </ToastProvider>
     </QueryClientProvider>
+    </AuthProvider>
   );
 }
 

@@ -13,6 +13,7 @@ export interface TeamMember {
   username: string;
   email: string;
   avatar?: string;
+  role: 'OWNER' | 'ADMIN' | 'MEMBER';
 }
 
 export interface Team {
@@ -89,6 +90,39 @@ const teamsAPI = {
     const { data } = await apiClient.post<Team>(`/teams/join/${token}`);  // ✅ Plural
     return data;
   },
+
+  updateMemberRole: async (teamId: string, userId: string, newRole: string): Promise<void> => {
+    // The backend uses @PatchMapping("/{teamId}/members/{userId}/role") with @RequestParam("newRole")
+    // We use a PATCH request with the role as a query parameter.
+    await apiClient.patch(
+      `/teams/${teamId}/members/${userId}/role`,
+      null, // PATCH requests can have a body, but here the parameter is a query param
+      {
+        params: { newRole }, // Pass newRole as a query parameter
+      }
+    );
+  },
+
+  transferOwnership: async (teamId: string, newOwnerId: string): Promise<void> => {
+    // The backend uses @PatchMapping("/{teamId}/transfer-owner/{newOwnerId}")
+    await apiClient.patch(`/teams/${teamId}/transfer-owner/${newOwnerId}`);
+  },
+
+  removeMember: async (teamId: string, userId: string): Promise<void> => {
+    // The backend uses @DeleteMapping("/{teamId}/members/{userId}")
+    await apiClient.delete(`/teams/${teamId}/members/${userId}`);
+  },
+
+  leaveTeam: async (teamId: string): Promise<void> => {
+    // The backend uses @DeleteMapping("/{teamId}/leave")
+    await apiClient.delete(`/teams/${teamId}/leave`);
+  },
 };
+
+
+
+
+
+
 
 export default teamsAPI;

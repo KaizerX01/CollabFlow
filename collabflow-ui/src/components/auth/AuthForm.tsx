@@ -8,9 +8,11 @@ import { Label } from "../../components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Users, Loader2, Mail, Lock, User} from "lucide-react";
-import { useLogin, useRegister, type LoginRequest } from "../../hooks/useAuth";
+import { useLogin, useRegister } from "../../hooks/useAuth";
 import { toast } from "sonner";
 import { api } from "../../api/axiosInstance";
+import { useAuth } from "../../context/AuthContext";
+import { useNavigate } from 'react-router-dom';
 
 const loginSchema = z.object({
   usernameOrEmail: z.string().email("Invalid email address"),
@@ -34,6 +36,8 @@ type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function AuthForm() {
   const [isLoading, setIsLoading] = useState(false);
+  const { setUser } = useAuth();
+  const navigate = useNavigate(); 
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -44,20 +48,29 @@ export default function AuthForm() {
   });
 
   const registerMutation = useRegister();
-
   const loginMutation = useLogin();
 
-const onLogin = async (data: LoginFormData) => {
+  const onLogin = async (data: LoginFormData) => {
   setIsLoading(true);
   try {
-
     const res = await loginMutation.mutateAsync(data);
 
+    console.log("🔍 LOGIN RESPONSE:", res);
+    console.log("🔍 USER DATA:", res.user);
+    console.log("🔍 ACCESS TOKEN:", res.accessToken);
+
     localStorage.setItem("access_token", res.accessToken);
-    localStorage.setItem("refresh_token", res.refreshToken);
+    api.defaults.headers.common["Authorization"] = `Bearer ${res.accessToken}`;
+
+    if (res.user) {
+      console.log("✅ Setting user:", res.user);
+      setUser(res.user);
+    } else {
+      console.error("❌ NO USER IN RESPONSE!");
+    }
 
     toast.success("Login successful! Redirecting...", { duration: 4000 });
-    setTimeout(() => (window.location.href = "/dashboard"), 1500);
+    setTimeout(() => navigate("/teams"), 1500);
   } catch (err: any) {
     toast.error(err.response?.data?.message || "Login failed. Please try again.", {
       duration: 4000,
@@ -66,7 +79,6 @@ const onLogin = async (data: LoginFormData) => {
     setIsLoading(false);
   }
 };
-
 
   const onRegister = (data: RegisterFormData) => {
     setIsLoading(true);
