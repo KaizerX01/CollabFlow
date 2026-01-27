@@ -1,0 +1,87 @@
+### Variables
+@baseUrl = http://localhost:9090
+@contentType = application/json
+
+### 1. Login to get JWT token
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "usernameOrEmail": "alice@example.com",
+  "password": "Password123"
+}
+
+> {%
+    client.global.set("auth_token", response.body.accessToken);
+%}
+
+### 2. Get all teams (to get a team ID)
+GET {{baseUrl}}/api/teams
+Authorization: Bearer {{auth_token}}
+
+> {%
+    client.global.set("team_id", response.body[0].id);
+%}
+
+### 3. Create a new project
+POST {{baseUrl}}/api/projects
+Content-Type: {{contentType}}
+Authorization: Bearer {{auth_token}}
+
+{
+  "teamId": "{{team_id}}",
+  "name": "Mobile App Redesign",
+  "description": "Complete overhaul of the mobile application UI/UX"
+}
+
+> {%
+    client.global.set("project_id", response.body.id);
+%}
+
+### 4. Get project by ID
+GET {{baseUrl}}/api/projects/{{project_id}}
+Authorization: Bearer {{auth_token}}
+
+### 5. Get all projects for a team
+GET {{baseUrl}}/api/projects/team/{{team_id}}
+Authorization: Bearer {{auth_token}}
+
+### 6. Update project
+PUT {{baseUrl}}/api/projects/{{project_id}}
+Content-Type: {{contentType}}
+Authorization: Bearer {{auth_token}}
+
+{
+  "name": "Mobile App Redesign - Phase 2",
+  "description": "Updated scope: focusing on Android first"
+}
+
+### 7. Create another project
+POST {{baseUrl}}/api/projects
+Content-Type: {{contentType}}
+Authorization: Bearer {{auth_token}}
+
+{
+  "teamId": "{{team_id}}",
+  "name": "Backend API Refactor",
+  "description": "Migrate legacy endpoints to new architecture"
+}
+
+### 8. Get all projects again (should see both)
+GET {{baseUrl}}/api/projects/team/{{team_id}}
+Authorization: Bearer {{auth_token}}
+
+### 9. Delete project (soft delete)
+DELETE {{baseUrl}}/api/projects/{{project_id}}
+Authorization: Bearer {{auth_token}}
+
+### 10. Verify deleted project is not returned
+GET {{baseUrl}}/api/projects/team/{{team_id}}
+Authorization: Bearer {{auth_token}}
+
+### 11. Test - Try to access non-existent project
+GET {{baseUrl}}/api/projects/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{auth_token}}
+
+### 12. Test - Missing authorization
+GET {{baseUrl}}/api/projects/{{project_id}}

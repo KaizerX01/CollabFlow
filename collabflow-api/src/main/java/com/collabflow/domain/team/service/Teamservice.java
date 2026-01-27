@@ -10,6 +10,7 @@ import com.collabflow.domain.team.model.TeamMembership;
 import com.collabflow.domain.team.model.TeamMembershipId;
 import com.collabflow.domain.team.model.enums.TeamRole;
 import com.collabflow.domain.team.repository.TeamInviteRepository;
+import com.collabflow.domain.team.repository.TeamMembershipRepository;
 import com.collabflow.domain.team.repository.TeamRepository;
 import com.collabflow.domain.user.exception.UserNotFoundException;
 import com.collabflow.domain.user.model.User;
@@ -28,8 +29,10 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class Teamservice {
 
+    private final TeamMembershipRepository teamMembershipRepository;
     @Value("${app.frontend.base-url}")
     private String frontendBaseUrl;
 
@@ -137,9 +140,8 @@ public class Teamservice {
     }
 
 
-    public Set<User> getTeamUsers(UUID userId, UUID teamId) {
-        Team team = teamRepository.findByIdWithMembershipsAndUsers(teamId)
-                .orElseThrow(() -> new TeamNotFoundException("Team not found"));
+    public Set<TeamMembership> getTeamMemberships(UUID userId, UUID teamId) {
+        Team team = getTeam(teamId);
 
         boolean isMember = team.getTeamMemberships().stream()
                 .anyMatch(m -> m.getUser().getId().equals(userId));
@@ -148,14 +150,13 @@ public class Teamservice {
             throw new TeamException("User is not a member of this team");
         }
 
-        return team.getTeamMemberships().stream().map(TeamMembership::getUser).collect(Collectors.toSet());
-
+        // 🚨 CHANGE: Return the Set of TeamMembership objects, not just the Users.
+        return team.getTeamMemberships();
     }
 
     @Transactional
     public String createInviteLink(UUID teamId, UUID userId) {
-        Team team = teamRepository.findByIdWithMembershipsAndUsers(teamId)
-                .orElseThrow(() -> new TeamNotFoundException("Team not found"));
+        Team team = getTeam(teamId);
 
         TeamMembership membership = team.getTeamMemberships().stream()
                 .filter(m -> m.getUser().getId().equals(userId))
@@ -224,4 +225,126 @@ public class Teamservice {
 
 
 
+
+    public void updateMemberRole(UUID teamId, UUID targetUserId, String newRoleStr, User actingUser) {
+
+        Team team = getTeam(teamId);
+
+        TeamRole newRole = TeamRole.valueOf(newRoleStr.toUpperCase());
+
+        // Find the acting user's membership
+        TeamMembership actingMembership = team.getTeamMemberships().stream()
+                .filter(m -> m.getUser().getId().equals(actingUser.getId()))
+                .findFirst()
+                .orElseThrow(() -> new TeamException("Acting user is not a member of this team"));
+
+// Find the target user's membership
+        TeamMembership targetMembership = team.getTeamMemberships().stream()
+                .filter(m -> m.getUser().getId().equals(targetUserId))
+                .findFirst()
+                .orElseThrow(() -> new TeamException("Target user is not a member of this team"));
+
+        // Only OWNER can promote/demote admins
+        if (actingMembership.getRole() != TeamRole.OWNER) {
+            throw new TeamException("Only the team owner can change member roles");
+        }
+
+        // Prevent owner from demoting themselves
+        if (targetMembership.getRole() == TeamRole.OWNER) {
+            throw new TeamException("Cannot change the role of the team owner");
+        }
+
+        targetMembership.setRole(newRole);
+        teamMembershipRepository.save(targetMembership);
+    }
+
+
+    @Transactional
+    public void transferOwnership(UUID teamId, UUID newOwnerId, User currentUser) {
+
+        Team team = getTeam(teamId);
+
+
+        // Find the acting user's membership
+        TeamMembership actingMembership = team.getTeamMemberships().stream()
+                .filter(m -> m.getUser().getId().equals(currentUser.getId()))
+                .findFirst()
+                .orElseThrow(() -> new TeamException("Acting user is not a member of this team"));
+
+// Find the target user's membership
+        TeamMembership newOwnerMembership = team.getTeamMemberships().stream()
+                .filter(m -> m.getUser().getId().equals(newOwnerId))
+                .findFirst()
+                .orElseThrow(() -> new TeamException("Target user is not a member of this team"));
+
+
+        if (actingMembership.getRole() != TeamRole.OWNER) {
+            throw new TeamException("Only the team owner can change member roles");
+        }
+
+
+        newOwnerMembership.setRole(TeamRole.OWNER);
+        actingMembership.setRole(TeamRole.ADMIN);
+
+        teamMembershipRepository.save(actingMembership);
+        teamMembershipRepository.save(newOwnerMembership);
+
+
+    }
+
+
+    @Transactional
+    public void removeMember(UUID teamId, UUID userId, User currentUser) {
+        Team team = getTeam(teamId);
+
+        // Find the acting user's membership
+        TeamMembership actingMembership = team.getTeamMemberships().stream()
+                .filter(m -> m.getUser().getId().equals(currentUser.getId()))
+                .findFirst()
+                .orElseThrow(() -> new TeamException("Acting user is not a member of this team"));
+
+        TeamMembership targetMembership = team.getTeamMemberships().stream()
+                .filter(m -> m.getUser().getId().equals(userId))
+                .findFirst()
+                .orElseThrow(() -> new TeamException("Target user is not a member of this team"));
+
+        if (targetMembership.getRole() == TeamRole.OWNER) {
+            throw new TeamException("You cannot remove the team owner");
+        }
+
+        if (actingMembership.getRole() == TeamRole.MEMBER) {
+            throw new TeamException("You do not have permission to remove members");
+        }
+
+        // Admin can only remove members
+        if (actingMembership.getRole() == TeamRole.ADMIN && targetMembership.getRole() != TeamRole.MEMBER) {
+            throw new TeamException("Admins can only remove members");
+        }
+
+        // ✅ Use the custom delete method
+        teamMembershipRepository.deleteByTeamIdAndUserId(teamId, userId);
+    }
+
+    @Transactional
+    public void leaveTeam(UUID teamId, User currentUser) {
+        Team team = getTeam(teamId);
+
+        // Find the acting user's membership
+        TeamMembership currentUserMembership = team.getTeamMemberships().stream()
+                .filter(m -> m.getUser().getId().equals(currentUser.getId()))
+                .findFirst()
+                .orElseThrow(() -> new TeamException("Acting user is not a member of this team"));
+
+        if (currentUserMembership.getRole() == TeamRole.OWNER) {
+            throw new TeamException("Owner cannot leave the team. Transfer ownership first.");
+        }
+
+        // ✅ Use the custom delete method
+        teamMembershipRepository.deleteByTeamIdAndUserId(teamId, currentUser.getId());
+    }
+
+    private Team getTeam(UUID teamId) {
+        return teamRepository.findByIdWithMembershipsAndUsers(teamId).orElseThrow(() -> new TeamNotFoundException("Team not found"));
+    }
 }
+

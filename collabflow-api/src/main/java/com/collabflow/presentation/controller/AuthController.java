@@ -4,10 +4,12 @@ import com.collabflow.application.auth.AuthService;
 import com.collabflow.domain.user.dto.*;
 import com.collabflow.domain.user.exception.EmailAlreadyExistsException;
 import com.collabflow.domain.user.exception.UsernameException;
+import com.collabflow.domain.user.mapper.UserMapper;
 import com.collabflow.domain.user.model.RefreshToken;
 import com.collabflow.domain.user.model.User;
 import com.collabflow.domain.user.repository.RefreshTokenRepository;
 import com.collabflow.domain.user.service.UserService;
+import com.collabflow.security.CustomUserDetails;
 import com.collabflow.security.JwtUtils;
 import jakarta.security.auth.message.AuthException;
 import jakarta.validation.Valid;
@@ -15,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,6 +34,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserService userService;
+    private final UserMapper userMapper;
 
 
     @PostMapping("/register")
@@ -44,9 +48,21 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) throws AuthException {
-        AuthTokens tokens = authService.authenticate(request.getUsernameOrEmail(), request.getPassword());
+        // ✅ Get both tokens and user from service
+        AuthService.AuthResult result = authService.authenticate(
+                request.getUsernameOrEmail(),
+                request.getPassword()
+        );
 
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", tokens.getRefreshToken())
+        // ✅ Convert User entity to UserResponse DTO
+        UserResponse userResponse = new UserResponse(
+                result.getUser().getId(),
+                result.getUser().getUsername(),
+                result.getUser().getEmail()
+        );
+
+        // ✅ Create refresh token cookie
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", result.getTokens().getRefreshToken())
                 .httpOnly(true)
                 .secure(true)
                 .path("/")
@@ -54,9 +70,15 @@ public class AuthController {
                 .sameSite("Strict")
                 .build();
 
+        // ✅ Build response with user data
+        AuthResponse response = new AuthResponse();
+        response.setUser(userResponse);
+        response.setAccessToken(result.getTokens().getAccessToken());
+        response.setTokenType("Bearer");
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                .body(new AuthResponse(tokens.getAccessToken()));
+                .body(response);
     }
 
     @PostMapping("/refresh")
@@ -99,6 +121,7 @@ public class AuthController {
                 .header(HttpHeaders.SET_COOKIE, clearCookie.toString())
                 .body("Logged out");
     }
+
 
 
     @ExceptionHandler(UsernameException.class)

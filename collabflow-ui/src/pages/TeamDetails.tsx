@@ -1,12 +1,25 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Edit3, Link2, LogOut, Users, Crown, Sparkles, Zap } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Edit3, 
+  Link2, 
+  LogOut, 
+  Users, 
+  Crown, 
+  Sparkles, 
+  Zap,
+  FolderOpen,
+  Plus,
+  Grid3x3
+} from 'lucide-react';
 import { useTeamDetails, useLeaveTeam } from '../hooks/useTeams';
+import { useTeamProjects } from '../hooks/useProjects';
 import { MemberCard } from '../components/MemberCard';
 import { EditTeamDialog } from '../components/EditTeamDialog';
 import { InviteDialog } from '../components/InviteDialog';
-import { ConfirmDialog } from '../components/ConfirmDialog'; // Ensure this path is correct
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { TeamDetailsSkeletons, Button } from '../components/shared';
 import { PremiumBackground } from '../components/PremiumBackground';
 import type { TeamMember } from '../api/teams';
@@ -16,11 +29,11 @@ export const TeamDetails: React.FC = () => {
   const navigate = useNavigate();
   const { teamId } = useParams<{ teamId: string }>();
   const { data: team, isLoading, error } = useTeamDetails(teamId || '');
+  const { data: projects, isLoading: projectsLoading } = useTeamProjects(teamId || '');
   
-  // Dialog States
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
-  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false); // New state for confirm dialog
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   
   const leaveTeamMutation = useLeaveTeam(teamId || '');
   const { currentUserId, isLoading: isAuthLoading } = useAuth();
@@ -124,7 +137,6 @@ export const TeamDetails: React.FC = () => {
   const currentUserRole: 'OWNER' | 'ADMIN' | 'MEMBER' = currentUser?.role || 'MEMBER';
   const canManage = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN';
 
-  // Logic to execute when "Confirm" is clicked
   const onConfirmLeaveTeam = () => {
     leaveTeamMutation.mutate(undefined, {
       onSuccess: () => {
@@ -139,9 +151,8 @@ export const TeamDetails: React.FC = () => {
   return (
     <PremiumBackground variant="teams" intensity="medium">
       <div className="min-h-screen relative overflow-hidden">
-        {/* Main content */}
         <div className="relative z-10 mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-          {/* Back button - Premium style */}
+          {/* Back button */}
           <motion.button
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -161,11 +172,10 @@ export const TeamDetails: React.FC = () => {
             transition={{ duration: 0.5 }}
             className="relative group mb-8"
           >
-            {/* ... (Header content unchanged) ... */}
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/30 via-purple-500/30 to-pink-500/30 rounded-[28px] opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-500" />
 
             <div className="relative rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] backdrop-blur-2xl p-8 shadow-2xl overflow-hidden">
-               <motion.div
+              <motion.div
                 className="absolute inset-0 opacity-30"
                 animate={{
                   background: [
@@ -254,14 +264,117 @@ export const TeamDetails: React.FC = () => {
             </div>
           </motion.div>
 
-          {/* Members section */}
+          {/* Projects Section */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.5 }}
+            className="relative rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] backdrop-blur-2xl p-8 shadow-2xl overflow-hidden mb-8"
+          >
+            <motion.div
+              className="absolute inset-0 opacity-20"
+              animate={{
+                background: [
+                  'radial-gradient(circle at 30% 40%, rgba(245, 158, 11, 0.1) 0%, transparent 60%)',
+                  'radial-gradient(circle at 70% 60%, rgba(239, 68, 68, 0.1) 0%, transparent 60%)',
+                  'radial-gradient(circle at 30% 40%, rgba(245, 158, 11, 0.1) 0%, transparent 60%)',
+                ],
+              }}
+              transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
+            />
+
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-gradient-to-br from-orange-500/20 to-purple-500/20 border border-orange-500/30">
+                    <FolderOpen className="h-6 w-6 text-orange-400" />
+                  </div>
+                  <span>
+                    Projects
+                    <span className="ml-3 text-lg text-slate-400 font-semibold">
+                      ({projects?.length || 0})
+                    </span>
+                  </span>
+                </h2>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => navigate(`/teams/${teamId}/projects`)}
+                  className="group relative px-5 py-3 rounded-xl overflow-hidden font-semibold shadow-xl shadow-orange-500/25 transition-all duration-200"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-red-500 to-purple-600 rounded-xl" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-orange-600 via-red-600 to-purple-700 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <span className="relative flex items-center gap-2 text-white">
+                    <Grid3x3 className="h-4 w-4" />
+                    View All Projects
+                  </span>
+                </motion.button>
+              </div>
+
+              {projectsLoading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block w-8 h-8 border-4 border-orange-400/30 border-t-orange-400 rounded-full animate-spin" />
+                </div>
+              ) : projects && projects.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {projects.slice(0, 3).map((project, index) => (
+                    <motion.div
+                      key={project.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      whileHover={{ y: -4 }}
+                      onClick={() => navigate(`/teams/${teamId}/projects/${project.id}`)}
+                      className="cursor-pointer group relative rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] backdrop-blur-sm p-6 hover:border-orange-500/30 transition-all duration-200"
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500/20 to-purple-500/20 border border-orange-500/30 flex items-center justify-center flex-shrink-0">
+                          <FolderOpen className="w-6 h-6 text-orange-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-semibold text-white truncate mb-1 group-hover:text-orange-400 transition-colors">
+                            {project.name}
+                          </h3>
+                          <p className="text-sm text-slate-400 line-clamp-2">
+                            {project.description || 'No description'}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700/50 to-slate-800/50 border border-slate-600/50 mb-4"
+                  >
+                    <FolderOpen className="h-8 w-8 text-slate-400" />
+                  </motion.div>
+                  <p className="text-slate-400 text-lg font-medium mb-4">No projects yet</p>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigate(`/teams/${teamId}/projects`)}
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-orange-500 via-red-500 to-purple-600 hover:from-orange-600 hover:via-red-600 hover:to-purple-700 text-white font-semibold shadow-lg shadow-orange-500/25 transition-all"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create First Project
+                  </motion.button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* Members section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
             className="relative rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] to-white/[0.03] backdrop-blur-2xl p-8 shadow-2xl overflow-hidden"
           >
-            {/* Animated gradient overlay */}
             <motion.div
               className="absolute inset-0 opacity-20"
               animate={{
@@ -328,13 +441,13 @@ export const TeamDetails: React.FC = () => {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
               className="mt-8 flex justify-end"
             >
               <motion.button
                 whileHover={{ scale: 1.02, y: -1 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => setLeaveDialogOpen(true)} // Open Custom Dialog
+                onClick={() => setLeaveDialogOpen(true)}
                 disabled={leaveTeamMutation.isPending}
                 className="group relative px-6 py-3 rounded-xl overflow-hidden font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -353,7 +466,6 @@ export const TeamDetails: React.FC = () => {
         <EditTeamDialog open={editDialogOpen} onOpenChange={setEditDialogOpen} team={team} />
         <InviteDialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen} teamId={teamId} />
         
-        {/* Confirm Leave Dialog */}
         <ConfirmDialog
           open={leaveDialogOpen}
           onOpenChange={setLeaveDialogOpen}

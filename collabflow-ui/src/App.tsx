@@ -6,6 +6,8 @@ import { TeamDetails } from './pages/TeamDetails';
 import { InviteAccept } from './pages/InviteAccept';
 import AuthForm from './components/auth/AuthForm';
 import { AuthProvider } from './context/AuthContext';
+import { ProjectList } from './pages/ProjectsList';
+import { ProjectDetails } from './pages/ProjectDetails';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,20 +20,29 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <AuthProvider >
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/teams" element={<TeamsList />} />
-            <Route path='/login' element={<AuthForm />} />
-            <Route path="/teams/:teamId" element={<TeamDetails />} />
-            <Route path="/invite/:token" element={<InviteAccept />} />
-            <Route path="/" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </ToastProvider>
-    </QueryClientProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* Auth */}
+              <Route path="/login" element={<AuthForm />} />
+              
+              {/* Teams */}
+              <Route path="/teams" element={<TeamsList />} />
+              <Route path="/teams/:teamId" element={<TeamDetails />} />
+              <Route path="/invite/:token" element={<InviteAccept />} />
+              
+              {/* Projects - nested under teams */}
+              <Route path="/teams/:teamId/projects" element={<ProjectList />} />
+              <Route path="/teams/:teamId/projects/:projectId" element={<ProjectDetails />} />
+              
+              {/* Default redirect */}
+              <Route path="/" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
+      </QueryClientProvider>
     </AuthProvider>
   );
 }

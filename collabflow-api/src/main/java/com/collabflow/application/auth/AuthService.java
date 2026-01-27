@@ -24,7 +24,7 @@ public class AuthService {
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
 
-    public AuthTokens authenticate(String email, String password) throws AuthException {
+    public AuthResult authenticate(String email, String password) throws AuthException {
         System.out.println("=== LOGIN DEBUG ===");
         System.out.println("Attempting to find user with email: " + email);
 
@@ -39,8 +39,8 @@ public class AuthService {
         User user = userOpt.orElseThrow(() -> new AuthException("Invalid credentials"));
 
         System.out.println("User retrieved: " + user.getUsername());
-        System.out.println("User ID: " + user.getId());  // ← ADD THIS
-        System.out.println("User ID is null? " + (user.getId() == null));  // ← ADD THIS
+        System.out.println("User ID: " + user.getId());
+        System.out.println("User ID is null? " + (user.getId() == null));
         System.out.println("Stored password hash: " + user.getPassword());
         System.out.println("Input password: " + password);
         System.out.println("Password matches: " + passwordEncoder.matches(password, user.getPassword()));
@@ -66,7 +66,27 @@ public class AuthService {
 
         refreshTokenRepository.save(refreshTokenEntity);
 
-        return new AuthTokens(accessToken, refreshToken);
+        // ✅ Return both tokens AND user
+        return new AuthResult(new AuthTokens(accessToken, refreshToken), user);
+    }
+
+    // ✅ Add this inner class or create a separate file
+    public static class AuthResult {
+        private final AuthTokens tokens;
+        private final User user;
+
+        public AuthResult(AuthTokens tokens, User user) {
+            this.tokens = tokens;
+            this.user = user;
+        }
+
+        public AuthTokens getTokens() {
+            return tokens;
+        }
+
+        public User getUser() {
+            return user;
+        }
     }
 
     public AuthTokens refreshAccessToken(String refreshToken) throws AuthException {
