@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -22,11 +22,17 @@ import type { ProjectResponse } from '../api/projects';
 
 export const ProjectDetails: React.FC = () => {
   const { teamId } = useParams<{ teamId: string }>();
+  const navigate = useNavigate(); // ✅ ADD THIS
   const { data: projects, isLoading, error } = useTeamProjects(teamId!);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editProject, setEditProject] = useState<ProjectResponse | null>(null);
   const [deleteProject, setDeleteProject] = useState<ProjectResponse | null>(null);
+
+  // ✅ ADD THIS FUNCTION
+  const handleOpenProject = (projectId: string) => {
+    navigate(`/teams/${teamId}/projects/${projectId}/workspace`);
+  };
 
   if (!teamId) {
     return (
@@ -213,9 +219,7 @@ export const ProjectDetails: React.FC = () => {
                           project={project}
                           onEdit={() => setEditProject(project)}
                           onDelete={() => setDeleteProject(project)}
-                          onClick={() => {
-                            console.log('Navigate to project:', project.id);
-                          }}
+                          onClick={() => handleOpenProject(project.id)} // ✅ CHANGED THIS LINE
                         />
                       </motion.div>
                     ))}

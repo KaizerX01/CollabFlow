@@ -1,3 +1,4 @@
+// App.tsx - UPDATED VERSION
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './context/ToastContext';
@@ -8,6 +9,7 @@ import AuthForm from './components/auth/AuthForm';
 import { AuthProvider } from './context/AuthContext';
 import { ProjectList } from './pages/ProjectsList';
 import { ProjectDetails } from './pages/ProjectDetails';
+import { KanbanWorkspace } from './pages/KanbanWorkspace'; // NEW IMPORT
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +38,12 @@ function App() {
               {/* Projects - nested under teams */}
               <Route path="/teams/:teamId/projects" element={<ProjectList />} />
               <Route path="/teams/:teamId/projects/:projectId" element={<ProjectDetails />} />
+              
+              {/* NEW: Kanban Workspace - Main task management interface */}
+              <Route 
+                path="/teams/:teamId/projects/:projectId/workspace" 
+                element={<KanbanWorkspace />} 
+              />
               
               {/* Default redirect */}
               <Route path="/" element={<Navigate to="/login" replace />} />

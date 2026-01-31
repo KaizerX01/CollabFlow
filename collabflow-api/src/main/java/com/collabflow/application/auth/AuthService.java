@@ -1,5 +1,6 @@
 package com.collabflow.application.auth;
 
+import com.collabflow.domain.user.dto.AuthResult;
 import com.collabflow.domain.user.dto.AuthTokens;
 import com.collabflow.domain.user.model.RefreshToken;
 import com.collabflow.domain.user.model.User;
@@ -70,24 +71,8 @@ public class AuthService {
         return new AuthResult(new AuthTokens(accessToken, refreshToken), user);
     }
 
-    // ✅ Add this inner class or create a separate file
-    public static class AuthResult {
-        private final AuthTokens tokens;
-        private final User user;
 
-        public AuthResult(AuthTokens tokens, User user) {
-            this.tokens = tokens;
-            this.user = user;
-        }
 
-        public AuthTokens getTokens() {
-            return tokens;
-        }
-
-        public User getUser() {
-            return user;
-        }
-    }
 
     public AuthTokens refreshAccessToken(String refreshToken) throws AuthException {
         RefreshToken stored = refreshTokenRepository.findByToken(refreshToken)

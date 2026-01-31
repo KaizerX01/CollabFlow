@@ -49,7 +49,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) throws AuthException {
         // ✅ Get both tokens and user from service
-        AuthService.AuthResult result = authService.authenticate(
+        AuthResult result = authService.authenticate(
                 request.getUsernameOrEmail(),
                 request.getPassword()
         );
