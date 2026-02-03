@@ -11,10 +11,10 @@ import {
   Edit2,
   Trash2,
   Users,
-  Clock,
 } from 'lucide-react';
 import { useToggleTaskComplete, useDeleteTask } from '../../hooks/useTasks';
 import { TaskDetailDialog } from './TaskDetailDialog';
+import { ConfirmDialog } from '../ConfirmDialog';
 import type { TaskResponse } from '../../api/tasks';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -27,6 +27,7 @@ interface TaskCardProps {
 export const TaskCard: React.FC<TaskCardProps> = ({ task, projectId, isDragging = false }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const toggleComplete = useToggleTaskComplete(projectId || task.projectId, task.taskListId);
   const deleteTask = useDeleteTask(projectId || task.projectId, task.taskListId);
@@ -46,15 +47,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, projectId, isDragging 
     });
   };
 
-  const handleDelete = async () => {
-    if (window.confirm('Delete this task?')) {
-      try {
-        await deleteTask.mutateAsync(task.id);
-        setIsDetailOpen(false); // Close dialog after successful delete
-        setIsMenuOpen(false);
-      } catch (error) {
-        console.error('Failed to delete task:', error);
-      }
+  const handleDeleteClick = () => {
+    setIsMenuOpen(false);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await deleteTask.mutateAsync(task.id);
+      setIsDetailOpen(false);
+    } catch (error) {
+      console.error('Failed to delete task:', error);
     }
   };
 
@@ -172,7 +175,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, projectId, isDragging 
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDelete();
+                      handleDeleteClick();
                     }}
                     className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center gap-2"
                   >
@@ -244,6 +247,17 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, projectId, isDragging 
           projectId={projectId || task.projectId}
         />
       )}
+
+      <ConfirmDialog
+        open={isDeleteConfirmOpen}
+        onOpenChange={setIsDeleteConfirmOpen}
+        title="Delete Task"
+        description="Are you sure you want to delete this task? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleConfirmDelete}
+        isLoading={deleteTask.isPending}
+      />
     </>
   );
 };

@@ -19,9 +19,11 @@ import {
 } from 'lucide-react';
 import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import { useProjectTaskLists } from '../hooks/useTaskLists';
+import { useProjectTaskLists, useReorderTaskLists } from '../hooks/useTaskLists';
 import { useProject } from '../hooks/useProjects';
+import { useMoveTask } from '../hooks/useTasks';
 import { KanbanColumn } from '../components/kanban/KanbanColumn';
+import { SortableColumn } from '../components/kanban/SortableColumn';
 import { TaskCard } from '../components/kanban/TaskCard';
 import { CreateTaskListDialog } from '../components/kanban/CreateTaskListDialog';
 import { CreateTaskDialog } from '../components/kanban/CreateTaskDialog';
@@ -29,6 +31,8 @@ import { KanbanSidebar } from '../components/kanban/KanbanSidebar';
 import { ThreeBackground } from '../components/kanban/ThreeBackground';
 import type { TaskResponse } from '../api/tasks';
 import type { TaskListResponse } from '../api/tasklists';
+
+
 
 export const KanbanWorkspace: React.FC = () => {
   const { teamId, projectId } = useParams<{ teamId: string; projectId: string }>();
@@ -44,6 +48,10 @@ export const KanbanWorkspace: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<number | null>(null);
   const [activeTask, setActiveTask] = useState<TaskResponse | null>(null);
+  const [activeList, setActiveList] = useState<TaskListResponse | null>(null);
+
+  const moveTask = useMoveTask(projectId!);
+  const reorderLists = useReorderTaskLists(projectId!);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -55,18 +63,106 @@ export const KanbanWorkspace: React.FC = () => {
 
   const handleDragStart = (event: any) => {
     const { active } = event;
-    setActiveTask(active.data.current?.task || null);
+    const activeData = active.data.current;
+    
+    if (activeData?.type === 'task') {
+      setActiveTask(activeData.task);
+    } else if (activeData?.type === 'list') {
+      setActiveList(activeData.list);
+    }
   };
 
-  const handleDragEnd = (event: any) => {
-    const { active, over } = event;
-    setActiveTask(null);
+  const handleDragEnd = async (event: any) => {
+  const { active, over } = event;
 
-    if (!over) return;
+  setActiveTask(null);
+  setActiveList(null);
 
-    // Handle task reordering logic here
-    console.log('Drag ended:', { active: active.id, over: over.id });
-  };
+  if (!over) return;
+
+  const activeData = active.data.current;
+  const overData = over.data.current;
+
+  // ---- TASK DRAG ----
+  if (activeData?.type === 'task' && activeData.task) {
+    const task = activeData.task as TaskResponse;
+
+    // Dropped on column
+    if (overData?.type === 'column') {
+      const newListId = overData.list.id;
+
+      if (task.taskListId !== newListId) {
+        await moveTask.mutateAsync({
+          taskId: task.id,
+          data: {
+            newTaskListId: newListId,
+            newPosition: 1000,
+          },
+        });
+      }
+    }
+
+    // Dropped on another task
+    else if (overData?.type === 'task' && overData.task) {
+      const overTask = overData.task as TaskResponse;
+
+      const sameList =
+        task.taskListId === overTask.taskListId &&
+        task.id !== overTask.id;
+
+      if (sameList) {
+        const movingDown = task.position < overTask.position;
+
+        // if moving down → place after
+        // if moving up → place before
+        const newPosition = movingDown
+          ? overTask.position + 1
+          : overTask.position - 1;
+
+        await moveTask.mutateAsync({
+          taskId: task.id,
+          data: {
+            newTaskListId: task.taskListId,
+            newPosition,
+          },
+        });
+      }
+
+      // Moving to different list
+      else if (task.taskListId !== overTask.taskListId) {
+        await moveTask.mutateAsync({
+          taskId: task.id,
+          data: {
+            newTaskListId: overTask.taskListId,
+            newPosition: overTask.position + 1,
+          },
+        });
+      }
+    }
+  }
+
+  // ---- LIST DRAG ----
+  else if (activeData?.type === 'list' && overData?.type === 'list') {
+    const activeList = activeData.list as TaskListResponse;
+    const overList = overData.list as TaskListResponse;
+
+    if (activeList.id !== overList.id && taskLists) {
+      const oldIndex = taskLists.findIndex(
+        (l) => l.id === activeList.id
+      );
+      const newIndex = taskLists.findIndex(
+        (l) => l.id === overList.id
+      );
+
+      const newLists = [...taskLists];
+      const [removed] = newLists.splice(oldIndex, 1);
+      newLists.splice(newIndex, 0, removed);
+
+      await reorderLists.mutateAsync(newLists.map((l) => l.id));
+    }
+  }
+};
+
 
   const handleCreateTask = (listId: string) => {
     setSelectedListId(listId);
@@ -199,7 +295,7 @@ export const KanbanWorkspace: React.FC = () => {
                   strategy={horizontalListSortingStrategy}
                 >
                   {taskLists?.map((list) => (
-                    <KanbanColumn
+                    <SortableColumn
                       key={list.id}
                       list={list}
                       projectId={projectId!}

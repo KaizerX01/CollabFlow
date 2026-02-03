@@ -13,22 +13,28 @@ import {
 import { useTaskListTasks } from '../../hooks/useTasks';
 import { useDeleteTaskList, useUpdateTaskList } from '../../hooks/useTaskLists';
 import { SortableTaskCard } from './SortableTaskCard';
+import { ConfirmDialog } from '../ConfirmDialog';
 import type { TaskListResponse } from '../../api/tasklists';
 
 interface KanbanColumnProps {
   list: TaskListResponse;
   projectId: string;
   onCreateTask: () => void;
+  dragHandleProps?: any;
+  isDragging?: boolean;
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   list,
   projectId,
   onCreateTask,
+  dragHandleProps,
+  isDragging = false,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(list.name);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const { data: tasks, isLoading } = useTaskListTasks(list.id);
   const deleteList = useDeleteTaskList(projectId);
@@ -52,15 +58,17 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     setIsEditing(false);
   };
 
-  const handleDelete = () => {
-    if (window.confirm(`Delete "${list.name}" and all its tasks?`)) {
-      deleteList.mutate(list.id);
-    }
+  const handleDeleteClick = () => {
     setIsMenuOpen(false);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    deleteList.mutate(list.id);
   };
 
   const taskCount = tasks?.length || 0;
-  const completedCount = tasks?.filter(t => t.completed).length || 0;
+  const completedCount = tasks?.filter(t => t.isCompleted).length || 0;
 
   return (
     <motion.div
@@ -73,7 +81,9 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
         <div className="p-4 border-b border-white/10">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2 flex-1">
-              <GripVertical className="w-4 h-4 text-slate-500 cursor-grab active:cursor-grabbing" />
+              <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing">
+                <GripVertical className="w-4 h-4 text-slate-500 hover:text-slate-300 transition-colors" />
+              </div>
               {isEditing ? (
                 <input
                   type="text"
@@ -132,7 +142,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                       Rename
                     </button>
                     <button
-                      onClick={handleDelete}
+                      onClick={handleDeleteClick}
                       className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center gap-2"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -215,6 +225,17 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           </motion.button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={isDeleteConfirmOpen}
+        onOpenChange={setIsDeleteConfirmOpen}
+        title="Delete List"
+        description={`Delete "${list.name}" and all its tasks? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleConfirmDelete}
+        isLoading={deleteList.isPending}
+      />
     </motion.div>
   );
 };

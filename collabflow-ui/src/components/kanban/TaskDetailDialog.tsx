@@ -16,6 +16,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useUpdateTask, useDeleteTask, useToggleTaskComplete } from '../../hooks/useTasks';
+import { ConfirmDialog } from '../ConfirmDialog';
 import { formatDistanceToNow } from 'date-fns';
 import type { TaskResponse } from '../../api/tasks';
 
@@ -33,6 +34,7 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
   projectId,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [priority, setPriority] = useState<number>(task.priority);
@@ -63,14 +65,16 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
     }
   };
 
-  const handleDelete = async () => {
-    if (window.confirm('Delete this task permanently?')) {
-      try {
-        await deleteTask.mutateAsync(task.id);
-        onClose();
-      } catch (error) {
-        console.error('Failed to delete task:', error);
-      }
+  const handleDeleteClick = () => {
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await deleteTask.mutateAsync(task.id);
+      onClose();
+    } catch (error) {
+      console.error('Failed to delete task:', error);
     }
   };
 
@@ -112,6 +116,17 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
   if (!isOpen) return null;
 
   return createPortal(
+    <>
+      <ConfirmDialog
+        open={isDeleteConfirmOpen}
+        onOpenChange={setIsDeleteConfirmOpen}
+        title="Delete Task"
+        description="Are you sure you want to delete this task permanently? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleConfirmDelete}
+        isLoading={deleteTask.isPending}
+      />
     <AnimatePresence>
       {isOpen && (
         <>
@@ -230,7 +245,7 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
-                          onClick={handleDelete}
+                          onClick={handleDeleteClick}
                           className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-colors flex items-center gap-2"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -385,7 +400,8 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
           </div>
         </>
       )}
-    </AnimatePresence>,
+    </AnimatePresence>
+    </>,
     document.body
   );
 };

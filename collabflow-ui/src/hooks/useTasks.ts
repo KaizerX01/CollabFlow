@@ -83,13 +83,46 @@ export const useMoveTask = (projectId: string) => {
   return useMutation({
     mutationFn: ({ taskId, data }: { taskId: string; data: TaskMoveRequest }) =>
       tasksApi.move(taskId, data),
-    onSuccess: (updatedTask) => {
-      // Invalidate all task lists in the project since task moved between lists
-      queryClient.invalidateQueries({ queryKey: taskKeys.byProject(projectId) });
-      queryClient.invalidateQueries({ queryKey: taskKeys.byId(updatedTask.id) });
+
+    onMutate: async ({ taskId, data }) => {
+      await queryClient.cancelQueries({ queryKey: taskKeys.all });
+
+      const snapshots = queryClient.getQueriesData({
+        queryKey: taskKeys.all,
+      });
+
+      queryClient.setQueriesData<TaskResponse[]>(
+        { queryKey: taskKeys.all },
+        (old) => {
+          if (!old) return old;
+
+          return old.map(task =>
+            task.id === taskId
+              ? {
+                  ...task,
+                  taskListId: data.newTaskListId,
+                  position: data.newPosition,
+                }
+              : task
+          );
+        }
+      );
+
+      return { snapshots };
+    },
+
+    onError: (_err, _vars, ctx) => {
+      ctx?.snapshots?.forEach(([key, data]: any) => {
+        queryClient.setQueryData(key, data);
+      });
+    },
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.all });
     },
   });
 };
+
 
 // Toggle task completion
 export const useToggleTaskComplete = (projectId: string, taskListId?: string) => {
