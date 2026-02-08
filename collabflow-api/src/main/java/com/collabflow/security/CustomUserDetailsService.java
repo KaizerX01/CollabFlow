@@ -3,6 +3,7 @@ package com.collabflow.security;
 import com.collabflow.domain.user.model.User;
 import com.collabflow.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +14,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
 
     @Override
+    @Cacheable(cacheNames = "userDetailsByIdentifier")
     public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
         // Try to find by username OR email (identifier = usernameOrEmail)
         User user = userRepository.findByUsername(identifier)

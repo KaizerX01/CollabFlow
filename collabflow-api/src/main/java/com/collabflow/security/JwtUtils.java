@@ -60,6 +60,11 @@ public class JwtUtils {
         return "refresh".equals(type);
     }
 
+    public boolean isAccessToken(String token) {
+        Object type = parseClaims(token).get("type");
+        return "access".equals(type);
+    }
+
     // === VALIDATION ===
     public boolean validateJwtToken(String token) {
         try {

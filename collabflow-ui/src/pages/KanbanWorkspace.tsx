@@ -21,7 +21,7 @@ import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useS
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { useProjectTaskLists, useReorderTaskLists } from '../hooks/useTaskLists';
 import { useProject } from '../hooks/useProjects';
-import { useMoveTask } from '../hooks/useTasks';
+import { useMoveTask, useProjectTasks } from '../hooks/useTasks';
 import { KanbanColumn } from '../components/kanban/KanbanColumn';
 import { SortableColumn } from '../components/kanban/SortableColumn';
 import { TaskCard } from '../components/kanban/TaskCard';
@@ -40,6 +40,7 @@ export const KanbanWorkspace: React.FC = () => {
 
   const { data: project, isLoading: projectLoading } = useProject(projectId!);
   const { data: taskLists, isLoading: listsLoading } = useProjectTaskLists(projectId!);
+  const { data: projectTasks } = useProjectTasks(projectId!);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isCreateListOpen, setIsCreateListOpen] = useState(false);
@@ -83,12 +84,41 @@ export const KanbanWorkspace: React.FC = () => {
   const activeData = active.data.current;
   const overData = over.data.current;
 
+  const computePosition = (
+    targetListId: string,
+    anchorTaskId?: string,
+    placeAfter?: boolean
+  ) => {
+    const tasksInList = (projectTasks || [])
+      .filter((t) => t.taskListId === targetListId)
+      .sort((a, b) => a.position - b.position);
+
+    // Remove the moving task to avoid self-collision when calculating slot
+    const filtered = tasksInList.filter((t) => t.id !== activeData?.task?.id);
+
+    if (!anchorTaskId) {
+      const last = filtered[filtered.length - 1];
+      return last ? last.position + 1000 : 1000;
+    }
+
+    const anchorIndex = filtered.findIndex((t) => t.id === anchorTaskId);
+    const insertIndex = anchorIndex + (placeAfter ? 1 : 0);
+
+    const prev = insertIndex > 0 ? filtered[insertIndex - 1] : undefined;
+    const next = filtered[insertIndex] || undefined;
+
+    if (prev && next) return (prev.position + next.position) / 2;
+    if (prev && !next) return prev.position + 1000;
+    if (!prev && next) return next.position / 2;
+    return 1000;
+  };
+
   // ---- TASK DRAG ----
   if (activeData?.type === 'task' && activeData.task) {
     const task = activeData.task as TaskResponse;
 
-    // Dropped on column
-    if (overData?.type === 'column') {
+    // Dropped on column (append) — also accept list container fallback
+    if (overData?.type === 'column' || overData?.type === 'list') {
       const newListId = overData.list.id;
 
       if (task.taskListId !== newListId) {
@@ -96,8 +126,9 @@ export const KanbanWorkspace: React.FC = () => {
           taskId: task.id,
           data: {
             newTaskListId: newListId,
-            newPosition: 1000,
+            newPosition: computePosition(newListId),
           },
+          currentTaskListId: task.taskListId,
         });
       }
     }
@@ -112,12 +143,7 @@ export const KanbanWorkspace: React.FC = () => {
 
       if (sameList) {
         const movingDown = task.position < overTask.position;
-
-        // if moving down → place after
-        // if moving up → place before
-        const newPosition = movingDown
-          ? overTask.position + 1
-          : overTask.position - 1;
+        const newPosition = computePosition(task.taskListId, overTask.id, movingDown);
 
         await moveTask.mutateAsync({
           taskId: task.id,
@@ -125,17 +151,21 @@ export const KanbanWorkspace: React.FC = () => {
             newTaskListId: task.taskListId,
             newPosition,
           },
+          currentTaskListId: task.taskListId,
         });
       }
 
       // Moving to different list
       else if (task.taskListId !== overTask.taskListId) {
+        const newPosition = computePosition(overTask.taskListId, overTask.id, true);
+
         await moveTask.mutateAsync({
           taskId: task.id,
           data: {
             newTaskListId: overTask.taskListId,
-            newPosition: overTask.position + 1,
+            newPosition,
           },
+          currentTaskListId: task.taskListId,
         });
       }
     }

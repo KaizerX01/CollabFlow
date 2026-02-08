@@ -52,10 +52,13 @@ public class TaskService {
     // -------------------------
     public TaskResponse createTask(UUID taskListId, TaskCreateRequest request, User user) {
         TaskList taskList = getTaskList(taskListId);
-        Project project = getProject(taskList.getProject().getId());
+        Map<UUID, Project> projectCache = new HashMap<>();
+        Map<UUID, Team> teamCache = new HashMap<>();
+
+        Project project = getProjectCached(taskList.getProject().getId(), projectCache);
 
         // Verify membership
-        verifyTeamMembership(getTeam(project.getTeamId()), user.getId());
+        verifyTeamMembership(getTeamCached(project.getTeamId(), teamCache), user.getId());
 
         // position default (bottom)
         Double position = request.getPosition();
@@ -87,7 +90,7 @@ public class TaskService {
             saved = taskRepository.findById(saved.getId()).orElse(saved);
         }
 
-        return buildTaskResponse(saved);
+        return buildTaskResponse(saved, null);
     }
 
     // -------------------------
@@ -95,28 +98,38 @@ public class TaskService {
     // -------------------------
     public List<TaskResponse> getTaskListTasks(UUID taskListId, UUID userId) {
         TaskList taskList = getTaskList(taskListId);
-        Project project = getProject(taskList.getProject().getId());
-        verifyTeamMembership(getTeam(project.getTeamId()), userId);
+        Map<UUID, Project> projectCache = new HashMap<>();
+        Map<UUID, Team> teamCache = new HashMap<>();
+
+        Project project = getProjectCached(taskList.getProject().getId(), projectCache);
+        verifyTeamMembership(getTeamCached(project.getTeamId(), teamCache), userId);
 
         List<Task> tasks = taskRepository.findByTaskList_IdAndIsDeletedFalseOrderByPositionAsc(taskListId);
 
+        Map<UUID, List<TaskAssignment>> assignmentsByTask = loadAssignmentsWithUsers(tasks);
+
         return tasks.stream()
-                .map(this::buildTaskResponse)
-                .collect(Collectors.toList());
+            .map(task -> buildTaskResponse(task, assignmentsByTask))
+            .collect(Collectors.toList());
     }
 
     // -------------------------
     // GET ALL TASKS IN A PROJECT (flat list, with assignees)
     // -------------------------
     public List<TaskResponse> getProjectTasks(UUID projectId, UUID userId) {
-        Project project = getProject(projectId);
-        verifyTeamMembership(getTeam(project.getTeamId()), userId);
+        Map<UUID, Project> projectCache = new HashMap<>();
+        Map<UUID, Team> teamCache = new HashMap<>();
+
+        Project project = getProjectCached(projectId, projectCache);
+        verifyTeamMembership(getTeamCached(project.getTeamId(), teamCache), userId);
 
         List<Task> tasks = taskRepository.findByProject_IdAndIsDeletedFalseOrderByPositionAsc(projectId);
 
+        Map<UUID, List<TaskAssignment>> assignmentsByTask = loadAssignmentsWithUsers(tasks);
+
         return tasks.stream()
-                .map(this::buildTaskResponse)
-                .collect(Collectors.toList());
+            .map(task -> buildTaskResponse(task, assignmentsByTask))
+            .collect(Collectors.toList());
     }
 
     // -------------------------
@@ -124,8 +137,9 @@ public class TaskService {
     // -------------------------
     public TaskResponse getTaskById(UUID taskId, UUID userId) {
         Task task = getTask(taskId);
-        verifyTeamMembership(getTeam(task.getProject().getTeamId()), userId);
-        return buildTaskResponse(task);
+        Map<UUID, Team> teamCache = new HashMap<>();
+        verifyTeamMembership(getTeamCached(task.getProject().getTeamId(), teamCache), userId);
+        return buildTaskResponse(task, null);
     }
 
     // -------------------------
@@ -133,7 +147,8 @@ public class TaskService {
     // -------------------------
     public TaskResponse updateTask(UUID taskId, TaskUpdateRequest request, User user) {
         Task task = getTask(taskId);
-        verifyTeamMembership(getTeam(task.getProject().getTeamId()), user.getId());
+        Map<UUID, Team> teamCache = new HashMap<>();
+        verifyTeamMembership(getTeamCached(task.getProject().getTeamId(), teamCache), user.getId());
 
         if (request.getTitle() != null) task.setTitle(request.getTitle());
         if (request.getDescription() != null) task.setDescription(request.getDescription());
@@ -150,7 +165,7 @@ public class TaskService {
             saved = taskRepository.findById(saved.getId()).orElse(saved);
         }
 
-        return buildTaskResponse(saved);
+        return buildTaskResponse(saved, null);
     }
 
     // -------------------------
@@ -159,6 +174,10 @@ public class TaskService {
     public TaskResponse moveTask(UUID taskId, UUID newTaskListId, Double newPosition, User user) {
         Task task = getTask(taskId);
         TaskList newTaskList = getTaskList(newTaskListId);
+        UUID oldTaskListId = task.getTaskList().getId();
+
+        Map<UUID, Project> projectCache = new HashMap<>();
+        Map<UUID, Team> teamCache = new HashMap<>();
 
         // verify same project
         if (!task.getProject().getId().equals(newTaskList.getProject().getId())) {
@@ -166,8 +185,8 @@ public class TaskService {
         }
 
         // verify access
-        Project project = getProject(task.getProject().getId());
-        verifyTeamMembership(getTeam(project.getTeamId()), user.getId());
+        Project project = getProjectCached(task.getProject().getId(), projectCache);
+        verifyTeamMembership(getTeamCached(project.getTeamId(), teamCache), user.getId());
 
         Double position = newPosition;
         if (position == null) {
@@ -181,10 +200,24 @@ public class TaskService {
 
         Task updated = taskRepository.save(task);
 
+        rebalancePositions(newTaskListId);
+        if (!oldTaskListId.equals(newTaskListId)) {
+            rebalancePositions(oldTaskListId);
+        }
+
         // optional: rebalancing (if you use needsRebalance/rebalancePositions, keep them)
         // (not altering that logic here - you can reuse your existing rebalance methods)
 
-        return buildTaskResponse(updated);
+        return buildTaskResponse(updated, null);
+    }
+
+    private void rebalancePositions(UUID taskListId) {
+        List<Task> tasks = taskRepository.findByTaskList_IdAndIsDeletedFalseOrderByPositionAsc(taskListId);
+        double step = 1000.0;
+        for (int i = 0; i < tasks.size(); i++) {
+            tasks.get(i).setPosition((i + 1) * step);
+        }
+        taskRepository.saveAll(tasks);
     }
 
     // -------------------------
@@ -192,11 +225,12 @@ public class TaskService {
     // -------------------------
     public TaskResponse toggleComplete(UUID taskId, User user) {
         Task task = getTask(taskId);
-        verifyTeamMembership(getTeam(task.getProject().getTeamId()), user.getId());
+        Map<UUID, Team> teamCache = new HashMap<>();
+        verifyTeamMembership(getTeamCached(task.getProject().getTeamId(), teamCache), user.getId());
 
         task.setCompleted(!task.isCompleted());
         Task updated = taskRepository.save(task);
-        return buildTaskResponse(updated);
+        return buildTaskResponse(updated, null);
     }
 
     // -------------------------
@@ -204,7 +238,8 @@ public class TaskService {
     // -------------------------
     public void deleteTask(UUID taskId, User user) {
         Task task = getTask(taskId);
-        verifyTeamMembership(getTeam(task.getProject().getTeamId()), user.getId());
+        Map<UUID, Team> teamCache = new HashMap<>();
+        verifyTeamMembership(getTeamCached(task.getProject().getTeamId(), teamCache), user.getId());
 
         task.setDeleted(true);
         taskRepository.save(task);
@@ -265,10 +300,16 @@ public class TaskService {
     // -------------------------
     // Build response (maps task -> dto + assignees)
     // -------------------------
-    private TaskResponse buildTaskResponse(Task task) {
+    private TaskResponse buildTaskResponse(Task task, Map<UUID, List<TaskAssignment>> assignmentCache) {
         TaskResponse response = mapper.toResponse(task);
 
-        List<TaskAssignment> assignments = assignmentRepository.findByTask_Id(task.getId());
+        List<TaskAssignment> assignments;
+        if (assignmentCache != null) {
+            assignments = assignmentCache.getOrDefault(task.getId(), Collections.emptyList());
+        } else {
+            assignments = assignmentRepository.findByTask_Id(task.getId());
+        }
+
         List<com.collabflow.domain.task.dto.TaskAssignmentResponse> assignees =
                 assignments.stream()
                         .map(mapper::toAssignmentResponse)
@@ -276,6 +317,21 @@ public class TaskService {
 
         response.setAssignees(assignees);
         return response;
+    }
+
+    private Map<UUID, List<TaskAssignment>> loadAssignmentsWithUsers(List<Task> tasks) {
+        if (tasks == null || tasks.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        List<UUID> taskIds = tasks.stream()
+                .map(Task::getId)
+                .toList();
+
+        List<TaskAssignment> assignments = assignmentRepository.findByTask_IdInWithUser(taskIds);
+
+        return assignments.stream()
+                .collect(Collectors.groupingBy(a -> a.getTask().getId()));
     }
 
     // -------------------------
@@ -299,9 +355,17 @@ public class TaskService {
                 .orElseThrow(() -> new ProjectNotFoundException("Project not found with id: " + projectId));
     }
 
+    private Project getProjectCached(UUID projectId, Map<UUID, Project> cache) {
+        return cache.computeIfAbsent(projectId, this::getProject);
+    }
+
     private Team getTeam(UUID teamId) {
         return teamRepository.findByIdWithMembershipsAndUsers(teamId)
                 .orElseThrow(() -> new TeamNotFoundException("Team not found with id: " + teamId));
+    }
+
+    private Team getTeamCached(UUID teamId, Map<UUID, Team> cache) {
+        return cache.computeIfAbsent(teamId, this::getTeam);
     }
 
     private TeamMembership verifyTeamMembership(Team team, UUID userId) {

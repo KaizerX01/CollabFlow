@@ -15,6 +15,7 @@ import { useDeleteTaskList, useUpdateTaskList } from '../../hooks/useTaskLists';
 import { SortableTaskCard } from './SortableTaskCard';
 import { ConfirmDialog } from '../ConfirmDialog';
 import type { TaskListResponse } from '../../api/tasklists';
+import { useToast } from '../../hooks/use-toast';
 
 interface KanbanColumnProps {
   list: TaskListResponse;
@@ -39,9 +40,11 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const { data: tasks, isLoading } = useTaskListTasks(list.id);
   const deleteList = useDeleteTaskList(projectId);
   const updateList = useUpdateTaskList(projectId);
+  const { showToast } = useToast();
 
-  const { setNodeRef } = useDroppable({
-    id: list.id,
+  // Unique droppable id for tasks to avoid clashing with list sortable id
+  const { setNodeRef, isOver } = useDroppable({
+    id: `column-${list.id}`,
     data: {
       type: 'column',
       list,
@@ -53,6 +56,9 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       updateList.mutate({
         listId: list.id,
         data: { name: editName.trim() },
+      }, {
+        onSuccess: () => showToast('success', 'List renamed'),
+        onError: () => showToast('error', 'Could not rename list'),
       });
     }
     setIsEditing(false);
@@ -64,7 +70,10 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   };
 
   const handleConfirmDelete = () => {
-    deleteList.mutate(list.id);
+    deleteList.mutate(list.id, {
+      onSuccess: () => showToast('success', 'List deleted'),
+      onError: () => showToast('error', 'Could not delete list'),
+    });
   };
 
   const taskCount = tasks?.length || 0;
@@ -185,7 +194,9 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
         {/* Tasks List */}
         <div
           ref={setNodeRef}
-          className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent"
+          className={`relative flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent rounded-xl transition-colors ${
+            isOver ? 'border-2 border-purple-500/60 bg-purple-500/5' : 'border border-transparent'
+          }`}
         >
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
@@ -203,11 +214,13 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           )}
 
           {!isLoading && taskCount === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className={`flex flex-col items-center justify-center py-12 text-center rounded-xl border-2 border-dashed ${
+              isOver ? 'border-purple-400/80 bg-purple-500/5 text-purple-200' : 'border-white/10 text-slate-500'
+            }`}>
               <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-3">
-                <Plus className="w-8 h-8 text-slate-600" />
+                <Plus className="w-8 h-8 text-current" />
               </div>
-              <p className="text-sm text-slate-500">No tasks yet</p>
+              <p className="text-sm">Drop here to create the first task</p>
             </div>
           )}
         </div>

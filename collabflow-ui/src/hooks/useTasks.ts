@@ -81,28 +81,53 @@ export const useMoveTask = (projectId: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ taskId, data }: { taskId: string; data: TaskMoveRequest }) =>
+    mutationFn: ({ taskId, data }: { taskId: string; data: TaskMoveRequest; currentTaskListId?: string }) =>
       tasksApi.move(taskId, data),
 
-    onMutate: async ({ taskId, data }) => {
+    onMutate: async ({ taskId, data, currentTaskListId }) => {
       await queryClient.cancelQueries({ queryKey: taskKeys.all });
 
-      const snapshots = queryClient.getQueriesData({
-        queryKey: taskKeys.all,
-      });
+      const snapshots = queryClient.getQueriesData({ queryKey: taskKeys.all });
+
+      const sourceListId = currentTaskListId || snapshots
+        .flatMap(([, value]) => (Array.isArray(value) ? value : []))
+        .find((t: any) => t?.id === taskId)?.taskListId;
+
+      const sourceTasks = sourceListId
+        ? queryClient.getQueryData<TaskResponse[]>(taskKeys.byTaskList(sourceListId))
+        : undefined;
+      const sourceTask = sourceTasks?.find((t) => t.id === taskId);
+
+      if (sourceListId) {
+        queryClient.setQueriesData<TaskResponse[]>(
+          { queryKey: taskKeys.byTaskList(sourceListId) },
+          (old) => old?.filter((t) => t.id !== taskId)
+        );
+      }
+
+      queryClient.setQueriesData<TaskResponse[]>(
+        { queryKey: taskKeys.byTaskList(data.newTaskListId) },
+        (old) => {
+          const existing = (old || []).find((t) => t.id === taskId) || sourceTask || {};
+          const without = (old || []).filter((t) => t.id !== taskId);
+          const moved: TaskResponse = {
+            ...existing,
+            id: taskId,
+            taskListId: data.newTaskListId,
+            position: data.newPosition,
+          } as TaskResponse;
+          return [...without, moved]
+            .sort((a, b) => a.position - b.position);
+        }
+      );
 
       queryClient.setQueriesData<TaskResponse[]>(
         { queryKey: taskKeys.all },
         (old) => {
           if (!old) return old;
-
-          return old.map(task =>
+          return old.map((task) =>
             task.id === taskId
-              ? {
-                  ...task,
-                  taskListId: data.newTaskListId,
-                  position: data.newPosition,
-                }
+              ? { ...task, taskListId: data.newTaskListId, position: data.newPosition }
               : task
           );
         }
@@ -117,8 +142,10 @@ export const useMoveTask = (projectId: string) => {
       });
     },
 
-    onSuccess: () => {
+    onSuccess: (updatedTask) => {
       queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      queryClient.invalidateQueries({ queryKey: taskKeys.byTaskList(updatedTask.taskListId) });
+      queryClient.invalidateQueries({ queryKey: taskKeys.byProject(projectId) });
     },
   });
 };

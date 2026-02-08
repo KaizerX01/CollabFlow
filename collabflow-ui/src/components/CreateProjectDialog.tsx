@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, FolderPlus, Sparkles, Loader2 } from 'lucide-react';
 import { useCreateProject } from '../hooks/useProjects';
 import type { ProjectCreateRequest } from '../api/projects';
+import { useToast } from '../hooks/use-toast';
 
 interface CreateProjectDialogProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const createProject = useCreateProject(teamId);
+  const { showToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,9 +35,11 @@ export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({
       await createProject.mutateAsync(data);
       setName('');
       setDescription('');
+      showToast('success', 'Project created and ready to roll');
       onClose();
     } catch (error) {
       console.error('Failed to create project:', error);
+      showToast('error', 'Could not create project. Please try again.');
     }
   };
 

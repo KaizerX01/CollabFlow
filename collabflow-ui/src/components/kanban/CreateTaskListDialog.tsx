@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Loader2 } from 'lucide-react';
 import { useCreateTaskList } from '../../hooks/useTaskLists';
+import { useToast } from '../../hooks/use-toast';
 
 interface CreateTaskListDialogProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const CreateTaskListDialog: React.FC<CreateTaskListDialogProps> = ({
 }) => {
   const [name, setName] = useState('');
   const createList = useCreateTaskList(projectId);
+  const { showToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,9 +31,11 @@ export const CreateTaskListDialog: React.FC<CreateTaskListDialogProps> = ({
         name: name.trim(),
       });
       setName('');
+      showToast('success', 'List created');
       onClose();
     } catch (error) {
       console.error('Failed to create list:', error);
+      showToast('error', 'Could not create list.');
     }
   };
 

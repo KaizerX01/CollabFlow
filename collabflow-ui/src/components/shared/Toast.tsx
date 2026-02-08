@@ -14,31 +14,34 @@ interface ToastProps {
 
 const toastConfig = {
   success: {
-    bg: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-700',
-    text: 'text-emerald-800 dark:text-emerald-200',
-    icon: 'text-emerald-500 dark:text-emerald-400',
+    shell: 'from-emerald-400/20 via-emerald-500/20 to-cyan-500/25 border-emerald-300/40 shadow-emerald-500/30',
+    text: 'text-emerald-50',
+    icon: 'text-emerald-200',
+    accent: 'from-emerald-400/80 via-teal-400/70 to-cyan-400/80',
     Icon: CheckCircle,
   },
   error: {
-    bg: 'bg-red-50 border-red-200 dark:bg-red-900/20 dark:border-red-700',
-    text: 'text-red-800 dark:text-red-200',
-    icon: 'text-red-500 dark:text-red-400',
+    shell: 'from-rose-400/25 via-red-500/25 to-orange-500/25 border-rose-300/40 shadow-rose-500/30',
+    text: 'text-rose-50',
+    icon: 'text-rose-200',
+    accent: 'from-rose-400/80 via-red-500/80 to-orange-400/80',
     Icon: AlertCircle,
   },
   info: {
-    bg: 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700',
-    text: 'text-blue-800 dark:text-blue-200',
-    icon: 'text-blue-500 dark:text-blue-400',
+    shell: 'from-sky-400/25 via-blue-500/20 to-indigo-500/25 border-sky-300/40 shadow-sky-500/30',
+    text: 'text-sky-50',
+    icon: 'text-sky-200',
+    accent: 'from-sky-400/80 via-blue-500/80 to-indigo-400/80',
     Icon: Info,
   },
 };
 
-export const Toast: React.FC<ToastProps> = ({ 
+export const Toast: React.FC<ToastProps> = ({
   id,
-  type, 
-  message, 
-  onClose, 
-  duration = 5000 
+  type,
+  message,
+  onClose,
+  duration = 4800,
 }) => {
   useEffect(() => {
     const timer = setTimeout(onClose, duration);
@@ -51,32 +54,49 @@ export const Toast: React.FC<ToastProps> = ({
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, y: -20, scale: 0.95 }}
+      initial={{ opacity: 0, y: -20, scale: 0.92 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -20, scale: 0.95 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-      className={`flex items-center gap-3 rounded-xl border px-4 py-3 shadow-lg backdrop-blur-xl ${config.bg} min-w-[320px] max-w-md`}
+      exit={{ opacity: 0, y: -20, scale: 0.9 }}
+      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+      className={`relative overflow-hidden rounded-2xl border bg-slate-950/80 backdrop-blur-xl px-4 py-3 shadow-2xl shadow-black/50 min-w-[340px] max-w-xl`}
     >
-      <motion.div
-        initial={{ scale: 0, rotate: -180 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-      >
-        <IconComponent className={`h-5 w-5 flex-shrink-0 ${config.icon}`} />
-      </motion.div>
-      
-      <p className={`flex-1 text-sm font-medium ${config.text}`}>
-        {message}
-      </p>
-      
-      <motion.button
-        whileHover={{ scale: 1.1, rotate: 90 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={onClose}
-        className={`flex-shrink-0 ${config.text} hover:opacity-75 transition-opacity rounded-lg p-1`}
-      >
-        <X className="h-4 w-4" />
-      </motion.button>
+      <div className={`absolute inset-0 bg-gradient-to-br ${config.shell}`}></div>
+      <div className="absolute inset-[-1px] rounded-2xl border border-white/10"></div>
+      <div className="relative flex items-start gap-3">
+        <motion.div
+          initial={{ scale: 0, rotate: -120 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ delay: 0.05, type: 'spring', stiffness: 260, damping: 18 }}
+          className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900/70 border border-white/10 shadow-inner shadow-black/30"
+        >
+          <IconComponent className={`h-6 w-6 ${config.icon}`} />
+        </motion.div>
+
+        <div className="flex-1 space-y-1">
+          <p className={`text-sm font-semibold leading-6 tracking-tight ${config.text}`}>
+            {message}
+          </p>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+            <motion.div
+              initial={{ width: '0%' }}
+              animate={{ width: '100%' }}
+              transition={{ duration: duration / 1000, ease: 'linear' }}
+              className={`h-full bg-gradient-to-r ${config.accent} shadow-[0_0_18px_rgba(255,255,255,0.35)]`}
+            />
+          </div>
+        </div>
+
+        <motion.button
+          whileHover={{ scale: 1.05, rotate: 6 }}
+          whileTap={{ scale: 0.92 }}
+          onClick={onClose}
+          className={`mt-1 rounded-lg border border-white/10 bg-white/5 p-1 text-xs font-semibold uppercase tracking-wide ${config.text} transition-colors hover:bg-white/10`}
+        >
+          <X className="h-4 w-4" />
+        </motion.button>
+      </div>
+
+      <div className={`pointer-events-none absolute -left-10 -top-10 h-24 w-24 rounded-full blur-3xl bg-gradient-to-br ${config.accent} opacity-30`}></div>
     </motion.div>
   );
 };

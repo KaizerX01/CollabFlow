@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Plus, Loader2, Calendar, Flag, User } from 'lucide-react';
 import { useCreateTask } from '../../hooks/useTasks';
+import { useToast } from '../../hooks/use-toast';
 
 interface CreateTaskDialogProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
   const [dueDate, setDueDate] = useState('');
 
   const createTask = useCreateTask(taskListId, projectId);
+  const { showToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,9 +43,11 @@ export const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({
       setDescription('');
       setPriority(0);
       setDueDate('');
+      showToast('success', 'Task created');
       onClose();
     } catch (error) {
       console.error('Failed to create task:', error);
+      showToast('error', 'Could not create task.');
     }
   };
 

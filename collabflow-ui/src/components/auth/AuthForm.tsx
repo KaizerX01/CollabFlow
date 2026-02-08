@@ -9,10 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Users, Loader2, Mail, Lock, User} from "lucide-react";
 import { useLogin, useRegister } from "../../hooks/useAuth";
-import { toast } from "sonner";
 import { api } from "../../api/axiosInstance";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from 'react-router-dom';
+import { useToast } from "../../hooks/use-toast";
 
 const loginSchema = z.object({
   usernameOrEmail: z.string().email("Invalid email address"),
@@ -38,6 +38,7 @@ export default function AuthForm() {
   const [isLoading, setIsLoading] = useState(false);
   const { setUser } = useAuth();
   const navigate = useNavigate(); 
+  const { showToast } = useToast();
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -69,12 +70,10 @@ export default function AuthForm() {
       console.error("❌ NO USER IN RESPONSE!");
     }
 
-    toast.success("Login successful! Redirecting...", { duration: 4000 });
+    showToast("success", "Login successful! Redirecting...");
     setTimeout(() => navigate("/teams"), 1500);
   } catch (err: any) {
-    toast.error(err.response?.data?.message || "Login failed. Please try again.", {
-      duration: 4000,
-    });
+    showToast("error", err.response?.data?.message || "Login failed. Please try again.");
   } finally {
     setIsLoading(false);
   }
@@ -90,13 +89,11 @@ export default function AuthForm() {
       },
       {
         onSuccess: () => {
-          toast.success("Account created successfully! You can now login.", { duration: 4000 });
+          showToast("success", "Account created successfully! You can now login.");
           registerForm.reset();
         },
         onError: (error: any) => {
-          toast.error(error.response?.data?.message || "Registration failed. Please try again.", {
-            duration: 4000,
-          });
+          showToast("error", error.response?.data?.message || "Registration failed. Please try again.");
         },
         onSettled: () => {
           setIsLoading(false);

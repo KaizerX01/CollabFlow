@@ -38,10 +38,9 @@ public class AuthController {
 
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest request) throws AuthException {
-
+    public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) throws AuthException {
         var user = userService.addUser(request);
-        return ResponseEntity.ok(user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(userMapper.toDto(user));
     }
 
 

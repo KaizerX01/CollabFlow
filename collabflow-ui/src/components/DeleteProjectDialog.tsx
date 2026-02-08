@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { useDeleteProject } from '../hooks/useProjects';
+import { useToast } from '../hooks/use-toast';
 
 interface DeleteProjectDialogProps {
   isOpen: boolean;
@@ -19,13 +20,16 @@ export const DeleteProjectDialog: React.FC<DeleteProjectDialogProps> = ({
   teamId,
 }) => {
   const deleteProject = useDeleteProject(teamId);
+  const { showToast } = useToast();
 
   const handleDelete = async () => {
     try {
       await deleteProject.mutateAsync(projectId);
+      showToast('success', 'Project deleted');
       onClose();
     } catch (error) {
       console.error('Failed to delete project:', error);
+      showToast('error', 'Could not delete project.');
     }
   };
 

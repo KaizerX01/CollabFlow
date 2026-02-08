@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Edit3, Save, Loader2 } from 'lucide-react';
 import { useUpdateProject } from '../hooks/useProjects';
 import type { ProjectUpdateRequest } from '../api/projects';
+import { useToast } from '../hooks/use-toast';
 
 interface EditProjectDialogProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
   const [name, setName] = useState(currentName);
   const [description, setDescription] = useState(currentDescription || '');
   const updateProject = useUpdateProject(teamId);
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (isOpen) {
@@ -43,9 +45,11 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
 
     try {
       await updateProject.mutateAsync({ projectId, data });
+      showToast('success', 'Project updated');
       onClose();
     } catch (error) {
       console.error('Failed to update project:', error);
+      showToast('error', 'Could not update project.');
     }
   };
 

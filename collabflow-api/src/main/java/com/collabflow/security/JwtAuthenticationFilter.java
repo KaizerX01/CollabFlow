@@ -40,6 +40,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             System.out.println("✔️ JWT Valid: " + isValid);
 
             if (isValid) {
+                if (!jwtUtils.isAccessToken(jwt)) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    return;
+                }
                 try {
                     String username = jwtUtils.getUsernameFromJwt(jwt);
                     System.out.println("👤 Username from JWT: " + username);

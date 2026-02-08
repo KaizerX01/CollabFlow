@@ -15,10 +15,12 @@ import {
   Edit2,
   Trash2,
 } from 'lucide-react';
-import { useUpdateTask, useDeleteTask, useToggleTaskComplete } from '../../hooks/useTasks';
+import { useUpdateTask, useDeleteTask, useToggleTaskComplete, useMoveTask } from '../../hooks/useTasks';
 import { ConfirmDialog } from '../ConfirmDialog';
 import { formatDistanceToNow } from 'date-fns';
 import type { TaskResponse } from '../../api/tasks';
+import { useToast } from '../../hooks/use-toast';
+import { useProjectTaskLists } from '../../hooks/useTaskLists';
 
 interface TaskDetailDialogProps {
   task: TaskResponse;
@@ -41,10 +43,14 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
   const [dueDate, setDueDate] = useState(
     task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : ''
   );
+  const [listId, setListId] = useState(task.taskListId);
 
   const updateTask = useUpdateTask(projectId, task.taskListId);
   const deleteTask = useDeleteTask(projectId, task.taskListId);
   const toggleComplete = useToggleTaskComplete(projectId, task.taskListId);
+  const { showToast } = useToast();
+  const { data: projectLists } = useProjectTaskLists(projectId);
+  const moveTask = useMoveTask(projectId);
 
   const handleSave = async () => {
     if (!title.trim()) return;
@@ -59,9 +65,11 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
           dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
         },
       });
+      showToast('success', 'Task updated');
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to update task:', error);
+      showToast('error', 'Could not update task.');
     }
   };
 
@@ -72,9 +80,11 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
   const handleConfirmDelete = async () => {
     try {
       await deleteTask.mutateAsync(task.id);
+      showToast('success', 'Task deleted');
       onClose();
     } catch (error) {
       console.error('Failed to delete task:', error);
+      showToast('error', 'Could not delete task.');
     }
   };
 
@@ -86,8 +96,10 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
       console.log('✅ Toggle result:', result);
       console.log('   - isCompleted:', result.isCompleted);
       console.log('   - completed:', result.completed);
+      showToast('success', result.isCompleted || result.completed ? 'Task completed' : 'Task reopened');
     } catch (error) {
       console.error('❌ Failed to toggle completion:', error);
+      showToast('error', 'Could not update completion state.');
     }
   };
 
@@ -96,7 +108,26 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
     setDescription(task.description || '');
     setPriority(task.priority);
     setDueDate(task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '');
+    setListId(task.taskListId);
     setIsEditing(false);
+  };
+
+  const handleMoveList = async (newListId: string) => {
+    if (newListId === task.taskListId) return;
+    setListId(newListId);
+    try {
+      await moveTask.mutateAsync({
+        taskId: task.id,
+        data: {
+          newTaskListId: newListId,
+          newPosition: 1000,
+        },
+      });
+      showToast('success', 'Task moved');
+    } catch (err) {
+      showToast('error', 'Could not move task');
+      setListId(task.taskListId);
+    }
   };
 
   const priorityOptions = [
@@ -312,6 +343,22 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
+                  {/* List */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-400 mb-2">List</label>
+                    <select
+                      value={listId}
+                      onChange={(e) => handleMoveList(e.target.value)}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
+                    >
+                      {projectLists?.map((l) => (
+                        <option key={l.id} value={l.id} className="bg-slate-800">
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Priority */}
                   <div>
                     <label className="block text-sm font-medium text-slate-400 mb-2 flex items-center gap-2">
