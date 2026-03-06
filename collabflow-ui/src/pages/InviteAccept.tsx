@@ -14,7 +14,8 @@ export const InviteAccept: React.FC = () => {
     if (token) {
       acceptInvite(token);
     }
-  }, [token, acceptInvite]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   useEffect(() => {
     if (isSuccess) {

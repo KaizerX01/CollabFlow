@@ -9,13 +9,14 @@ import com.collabflow.domain.user.repository.UserRepository;
 import com.collabflow.security.JwtUtils;
 import jakarta.security.auth.message.AuthException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -25,30 +26,19 @@ public class AuthService {
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
 
-    public AuthResult authenticate(String email, String password) throws AuthException {
-        System.out.println("=== LOGIN DEBUG ===");
-        System.out.println("Attempting to find user with email: " + email);
+    public AuthResult authenticate(String identifier, String password) throws AuthException {
+        log.debug("Authentication attempt for identifier: {}", identifier);
 
-        Optional<User> userOpt = userRepository.findByEmail(email);
-        System.out.println("User found by email: " + userOpt.isPresent());
-
-        if (!userOpt.isPresent()) {
-            userOpt = userRepository.findByUsername(email);
-            System.out.println("User found by username: " + userOpt.isPresent());
-        }
-
-        User user = userOpt.orElseThrow(() -> new AuthException("Invalid credentials"));
-
-        System.out.println("User retrieved: " + user.getUsername());
-        System.out.println("User ID: " + user.getId());
-        System.out.println("User ID is null? " + (user.getId() == null));
-        System.out.println("Stored password hash: " + user.getPassword());
-        System.out.println("Input password: " + password);
-        System.out.println("Password matches: " + passwordEncoder.matches(password, user.getPassword()));
+        User user = userRepository.findByEmail(identifier)
+                .or(() -> userRepository.findByUsername(identifier))
+                .orElseThrow(() -> new AuthException("Invalid credentials"));
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
+            log.warn("Failed login attempt for user: {}", user.getUsername());
             throw new AuthException("Invalid credentials");
         }
+
+        log.info("Successful authentication for user: {}", user.getUsername());
 
         String accessToken = jwtUtils.generateJwtToken(user.getUsername());
         String refreshToken = jwtUtils.generateRefreshToken(user.getUsername());
@@ -58,12 +48,6 @@ public class AuthService {
         refreshTokenEntity.setToken(refreshToken);
         refreshTokenEntity.setUser(user);
         refreshTokenEntity.setExpiryDate(Instant.now().plus(Duration.ofDays(30)));
-
-        System.out.println("=== BEFORE SAVING REFRESH TOKEN ===");
-        System.out.println("RefreshToken.token: " + refreshTokenEntity.getToken());
-        System.out.println("RefreshToken.user: " + refreshTokenEntity.getUser());
-        System.out.println("RefreshToken.user.id: " + (refreshTokenEntity.getUser() != null ? refreshTokenEntity.getUser().getId() : "null"));
-        System.out.println("RefreshToken.expiryDate: " + refreshTokenEntity.getExpiryDate());
 
         refreshTokenRepository.save(refreshTokenEntity);
 

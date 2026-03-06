@@ -34,17 +34,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, projectId, isDragging 
 
   const handleToggleComplete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log('🔄 Toggling task:', task.id, 'Current state:', task.isCompleted || task.completed);
-    toggleComplete.mutate(task.id, {
-      onSuccess: (result) => {
-        console.log('✅ Toggle result:', result);
-        console.log('   - isCompleted:', result.isCompleted);
-        console.log('   - completed:', result.completed);
-      },
-      onError: (error) => {
-        console.error('❌ Failed to toggle:', error);
-      }
-    });
+    toggleComplete.mutate(task.id);
   };
 
   const handleDeleteClick = () => {
@@ -142,6 +132,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, projectId, isDragging 
                 setIsMenuOpen(!isMenuOpen);
               }}
               className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+              aria-haspopup="true"
+              aria-expanded={isMenuOpen}
             >
               <MoreVertical className="w-4 h-4" />
             </motion.button>
@@ -159,6 +151,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, projectId, isDragging 
                   initial={{ opacity: 0, scale: 0.95, y: -10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   className="absolute right-0 top-8 z-40 w-40 rounded-lg bg-slate-800 border border-white/10 shadow-xl overflow-hidden"
+                  role="menu"
+                  aria-orientation="vertical"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
@@ -167,6 +161,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, projectId, isDragging 
                       setIsDetailOpen(true);
                       setIsMenuOpen(false);
                     }}
+                    role="menuitem"
                     className="w-full px-3 py-2 text-left text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
@@ -177,6 +172,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, projectId, isDragging 
                       e.stopPropagation();
                       handleDeleteClick();
                     }}
+                    role="menuitem"
                     className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center gap-2"
                   >
                     <Trash2 className="w-3.5 h-3.5" />

@@ -1,5 +1,5 @@
 // pages/KanbanWorkspace.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -8,12 +8,8 @@ import {
   Sparkles,
   LayoutGrid,
   Loader2,
-  Settings,
-  MessageSquare,
-  FolderOpen,
   Filter,
   Search,
-  Users,
   Menu,
   X,
 } from 'lucide-react';
@@ -22,7 +18,6 @@ import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortabl
 import { useProjectTaskLists, useReorderTaskLists } from '../hooks/useTaskLists';
 import { useProject } from '../hooks/useProjects';
 import { useMoveTask, useProjectTasks } from '../hooks/useTasks';
-import { KanbanColumn } from '../components/kanban/KanbanColumn';
 import { SortableColumn } from '../components/kanban/SortableColumn';
 import { TaskCard } from '../components/kanban/TaskCard';
 import { CreateTaskListDialog } from '../components/kanban/CreateTaskListDialog';
@@ -38,9 +33,9 @@ export const KanbanWorkspace: React.FC = () => {
   const { teamId, projectId } = useParams<{ teamId: string; projectId: string }>();
   const navigate = useNavigate();
 
-  const { data: project, isLoading: projectLoading } = useProject(projectId!);
-  const { data: taskLists, isLoading: listsLoading } = useProjectTaskLists(projectId!);
-  const { data: projectTasks } = useProjectTasks(projectId!);
+  const { data: project, isLoading: projectLoading } = useProject(projectId || '');
+  const { data: taskLists, isLoading: listsLoading } = useProjectTaskLists(projectId || '');
+  const { data: projectTasks } = useProjectTasks(projectId || '');
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isCreateListOpen, setIsCreateListOpen] = useState(false);
@@ -49,7 +44,8 @@ export const KanbanWorkspace: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<number | null>(null);
   const [activeTask, setActiveTask] = useState<TaskResponse | null>(null);
-  const [activeList, setActiveList] = useState<TaskListResponse | null>(null);
+  const [, setActiveList] = useState<TaskListResponse | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const moveTask = useMoveTask(projectId!);
   const reorderLists = useReorderTaskLists(projectId!);
@@ -83,6 +79,8 @@ export const KanbanWorkspace: React.FC = () => {
 
   const activeData = active.data.current;
   const overData = over.data.current;
+
+  try {
 
   const computePosition = (
     targetListId: string,
@@ -191,6 +189,9 @@ export const KanbanWorkspace: React.FC = () => {
       await reorderLists.mutateAsync(newLists.map((l) => l.id));
     }
   }
+  } catch (error) {
+    console.error('Drag operation failed:', error);
+  }
 };
 
 
@@ -261,14 +262,47 @@ export const KanbanWorkspace: React.FC = () => {
               </div>
 
               {/* Filter */}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition-colors flex items-center gap-2"
-              >
-                <Filter className="w-4 h-4" />
-                Filter
-              </motion.button>
+              <div className="relative">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setFilterOpen(prev => !prev)}
+                  className={`px-4 py-2 rounded-lg border transition-colors flex items-center gap-2 ${
+                    filterPriority !== null
+                      ? 'bg-purple-500/20 border-purple-500/50 text-purple-300'
+                      : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <Filter className="w-4 h-4" />
+                  {filterPriority !== null ? `Priority ${filterPriority}` : 'Filter'}
+                </motion.button>
+                {filterOpen && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setFilterOpen(false)} />
+                    <div className="absolute right-0 top-12 z-30 w-48 rounded-lg bg-slate-800 border border-white/10 shadow-xl overflow-hidden py-1">
+                      <button
+                        onClick={() => { setFilterPriority(null); setFilterOpen(false); }}
+                        className={`w-full px-4 py-2 text-left text-sm transition-colors flex items-center gap-2 ${
+                          filterPriority === null ? 'text-purple-400 bg-purple-500/10' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                        }`}
+                      >
+                        All Priorities
+                      </button>
+                      {[1, 2, 3, 4, 5].map(p => (
+                        <button
+                          key={p}
+                          onClick={() => { setFilterPriority(p); setFilterOpen(false); }}
+                          className={`w-full px-4 py-2 text-left text-sm transition-colors flex items-center gap-2 ${
+                            filterPriority === p ? 'text-purple-400 bg-purple-500/10' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          Priority {p}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
 
               {/* Add List */}
               <motion.button
@@ -330,6 +364,8 @@ export const KanbanWorkspace: React.FC = () => {
                       list={list}
                       projectId={projectId!}
                       onCreateTask={() => handleCreateTask(list.id)}
+                      searchQuery={searchQuery}
+                      filterPriority={filterPriority}
                     />
                   ))}
                 </SortableContext>

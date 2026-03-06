@@ -91,14 +91,9 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
   const handleToggleComplete = async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     try {
-      console.log('🔄 Toggling task:', task.id, 'Current state:', task.isCompleted || task.completed);
       const result = await toggleComplete.mutateAsync(task.id);
-      console.log('✅ Toggle result:', result);
-      console.log('   - isCompleted:', result.isCompleted);
-      console.log('   - completed:', result.completed);
-      showToast('success', result.isCompleted || result.completed ? 'Task completed' : 'Task reopened');
+      showToast('success', result.completed ? 'Task completed' : 'Task reopened');
     } catch (error) {
-      console.error('❌ Failed to toggle completion:', error);
       showToast('error', 'Could not update completion state.');
     }
   };

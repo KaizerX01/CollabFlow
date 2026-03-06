@@ -8,8 +8,13 @@ export const ThreeBackground: React.FC = () => {
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const animationIdRef = useRef<number | null>(null);
 
+  // Respect prefers-reduced-motion: skip heavy Three.js rendering entirely
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current || prefersReducedMotion) return;
 
     // Scene setup
     const scene = new THREE.Scene();
@@ -36,7 +41,7 @@ export const ThreeBackground: React.FC = () => {
 
     // Create particles
     const particlesGeometry = new THREE.BufferGeometry();
-    const particleCount = 2000;
+    const particleCount = 800;
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
 

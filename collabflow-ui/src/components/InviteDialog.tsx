@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Modal, Button } from './shared';
 import { useGenerateInvite } from '../hooks/useTeams';
 import { useToast } from '../hooks/use-toast';
+import { isAxiosError } from 'axios';
 
 interface InviteDialogProps {
   open: boolean;
@@ -38,9 +39,10 @@ export const InviteDialog: React.FC<InviteDialogProps> = ({
           setInviteLink(data.inviteLink);
           showToast('success', 'Invite link generated');
         },
-        onError: (error: any) => {
+        onError: (error: Error) => {
           console.error('❌ Failed to generate invite:', error);
-          showToast('error', error.response?.data?.message || 'Failed to generate invite link');
+          const msg = isAxiosError(error) ? error.response?.data?.message : undefined;
+          showToast('error', msg || 'Failed to generate invite link');
           onOpenChange(false);
         },
       });

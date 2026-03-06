@@ -217,10 +217,12 @@ export const PremiumBackground: React.FC<PremiumBackgroundProps> = ({
   };
 
   const colors = colorSchemes[variant];
-  const particleCount = { low: 300, medium: 500, high: 800 }[intensity];
+  const particleCount = { low: 100, medium: 200, high: 400 }[intensity];
 
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden bg-slate-950">
+    <div className="relative min-h-screen">
+      {/* Fixed background layer */}
+      <div className="fixed inset-0 z-0 overflow-hidden bg-slate-950">
       {/* Three.js Canvas */}
       <div className="absolute inset-0 opacity-40">
         <Canvas camera={{ position: [0, 0, 8], fov: 50 }} gl={{ alpha: true, antialias: true }}>
@@ -283,8 +285,9 @@ export const PremiumBackground: React.FC<PremiumBackgroundProps> = ({
 
       {/* Vignette */}
       <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at center, transparent 0%, rgba(15, 23, 42, 0.4) 100%)' }} />
+      </div>
 
-      {/* Content */}
+      {/* Scrollable content */}
       {children && <div className="relative z-10">{children}</div>}
     </div>
   );

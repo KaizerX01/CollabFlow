@@ -1,14 +1,21 @@
 import axios from "axios";
+import { getAccessToken, setAccessToken, clearAccessToken } from "./tokenStore";
 
 export const api = axios.create({
-  baseURL: "http://localhost:9090/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:9090/api",
   withCredentials: true, // ✅ allow refresh cookie
 });
 
 let isRefreshing = false;
-let failedQueue: any[] = [];
 
-const processQueue = (error: any, token: string | null = null) => {
+interface QueueItem {
+  resolve: (token: string | null) => void;
+  reject: (error: unknown) => void;
+}
+
+let failedQueue: QueueItem[] = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue.forEach((prom) => {
     if (error) prom.reject(error);
     else prom.resolve(token);
@@ -25,7 +32,7 @@ api.interceptors.response.use(
     // ⛔ if refresh request itself failed → logout directly
     if (originalRequest.url?.includes("/auth/refresh")) {
       console.warn("Refresh token invalid — logging out.");
-      localStorage.removeItem("access_token");
+      clearAccessToken();
       window.location.href = "/login";
       return Promise.reject(error);
     }
@@ -51,14 +58,14 @@ api.interceptors.response.use(
         const res = await api.post("/auth/refresh");
         const newAccessToken = res.data.accessToken;
 
-        localStorage.setItem("access_token", newAccessToken);
+        setAccessToken(newAccessToken);
         api.defaults.headers.common["Authorization"] = `Bearer ${newAccessToken}`;
         processQueue(null, newAccessToken);
 
         return api(originalRequest);
       } catch (refreshErr) {
         processQueue(refreshErr, null);
-        localStorage.removeItem("access_token");
+        clearAccessToken();
         window.location.href = "/login"; // ⛔ log out safely
         return Promise.reject(refreshErr);
       } finally {
@@ -72,7 +79,7 @@ api.interceptors.response.use(
 
 // ✅ Attach access token for each request
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access_token");
+  const token = getAccessToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });

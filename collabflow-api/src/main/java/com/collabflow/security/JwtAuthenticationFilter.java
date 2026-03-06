@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,6 +13,7 @@ import java.io.IOException;
 import org.springframework.util.StringUtils;
 
 
+@Slf4j
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtils jwtUtils;
@@ -24,20 +26,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String path = request.getRequestURI();
 
-        System.out.println("🌐 Incoming request: " + path);
+        log.debug("Incoming request: {}", path);
 
         if (path.startsWith("/api/auth/") || path.startsWith("/actuator/")) {
-            System.out.println("✅ Bypassing JWT filter for: " + path);
+            log.debug("Bypassing JWT filter for: {}", path);
             filterChain.doFilter(request, response);
             return;
         }
 
         String jwt = parseJwt(request);
-        System.out.println("🔑 JWT Token present: " + (jwt != null));
+        log.debug("JWT Token present: {}", jwt != null);
 
         if (jwt != null) {
             boolean isValid = jwtUtils.validateJwtToken(jwt);
-            System.out.println("✔️ JWT Valid: " + isValid);
+            log.debug("JWT valid: {}", isValid);
 
             if (isValid) {
                 if (!jwtUtils.isAccessToken(jwt)) {
@@ -46,10 +48,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
                 try {
                     String username = jwtUtils.getUsernameFromJwt(jwt);
-                    System.out.println("👤 Username from JWT: " + username);
+                    log.debug("Username from JWT: {}", username);
 
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                    System.out.println("📋 Authorities: " + userDetails.getAuthorities());
 
                     UsernamePasswordAuthenticationToken auth =
                             new UsernamePasswordAuthenticationToken(
@@ -59,17 +60,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             );
 
                     SecurityContextHolder.getContext().setAuthentication(auth);
-                    System.out.println("✅ Authentication set successfully!");
+                    log.debug("Authentication set for user: {}", username);
 
                 } catch (Exception e) {
-                    System.err.println("❌ Error setting authentication: " + e.getMessage());
-                    e.printStackTrace();
+                    log.error("Error setting authentication: {}", e.getMessage());
                 }
             }
         }
-
-        System.out.println("🔓 Current authentication: " +
-                SecurityContextHolder.getContext().getAuthentication());
 
         filterChain.doFilter(request, response);
     }

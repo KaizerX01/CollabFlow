@@ -35,6 +35,10 @@ public class AuthController {
     private final AuthService authService;
     private final UserService userService;
     private final UserMapper userMapper;
+    private final RefreshTokenRepository refreshTokenRepository;
+
+    @org.springframework.beans.factory.annotation.Value("${app.cookie.secure:false}")
+    private boolean secureCookies;
 
 
     @PostMapping("/register")
@@ -46,24 +50,24 @@ public class AuthController {
 
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) throws AuthException {
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) throws AuthException {
         // ✅ Get both tokens and user from service
         AuthResult result = authService.authenticate(
                 request.getUsernameOrEmail(),
                 request.getPassword()
         );
 
-        // ✅ Convert User entity to UserResponse DTO
+        // Convert AuthResult to UserResponse DTO (no password hash exposed)
         UserResponse userResponse = new UserResponse(
-                result.getUser().getId(),
-                result.getUser().getUsername(),
-                result.getUser().getEmail()
+                result.getUserId(),
+                result.getUsername(),
+                result.getEmail()
         );
 
         // ✅ Create refresh token cookie
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", result.getTokens().getRefreshToken())
                 .httpOnly(true)
-                .secure(true)
+                .secure(secureCookies)
                 .path("/")
                 .maxAge(Duration.ofDays(30))
                 .sameSite("Strict")
@@ -91,7 +95,7 @@ public class AuthController {
 
             ResponseCookie newCookie = ResponseCookie.from("refreshToken", newTokens.getRefreshToken())
                     .httpOnly(true)
-                    .secure(true)
+                    .secure(secureCookies)
                     .path("/")
                     .maxAge(Duration.ofDays(30))
                     .sameSite("Strict")
@@ -108,10 +112,19 @@ public class AuthController {
 
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout() {
+    public ResponseEntity<?> logout(
+            @CookieValue(value = "refreshToken", required = false) String refreshToken,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        // Invalidate the refresh token in the database
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            refreshTokenRepository.findByToken(refreshToken)
+                    .ifPresent(refreshTokenRepository::delete);
+        }
+
         ResponseCookie clearCookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true)
-                .secure(true)
+                .secure(secureCookies)
                 .path("/")
                 .maxAge(0)
                 .build();

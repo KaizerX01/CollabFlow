@@ -18,12 +18,10 @@ import com.collabflow.domain.team.model.TeamMembership;
 import com.collabflow.domain.team.model.enums.TeamRole;
 import com.collabflow.domain.team.repository.TeamRepository;
 import com.collabflow.domain.user.model.User;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -31,7 +29,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class TaskListService {
 
     private final TaskListRepository taskListRepository;
@@ -41,14 +39,9 @@ public class TaskListService {
 
     @Transactional
     public TaskListResponse createTaskList(UUID projectId, TaskListCreateRequest request, User user) {
-        Map<UUID, Project> projectCache = new HashMap<>();
-        Map<UUID, Team> teamCache = new HashMap<>();
+        Project project = getProject(projectId);
 
-        // Get project and verify it exists and is not deleted
-        Project project = getProjectCached(projectId, projectCache);
-
-        // Verify user has permission (is member of the project's team)
-        Team team = getTeamCached(project.getTeamId(), teamCache);
+        Team team = getTeam(project.getTeamId());
         TeamMembership membership = verifyTeamMembership(team, user.getId());
 
         // Only OWNER and ADMIN can create task lists
@@ -76,11 +69,8 @@ public class TaskListService {
     }
 
     public List<TaskListResponse> getProjectTaskLists(UUID projectId, UUID userId) {
-        Map<UUID, Project> projectCache = new HashMap<>();
-        Map<UUID, Team> teamCache = new HashMap<>();
-        // Get project and verify access
-        Project project = getProjectCached(projectId, projectCache);
-        Team team = getTeamCached(project.getTeamId(), teamCache);
+        Project project = getProject(projectId);
+        Team team = getTeam(project.getTeamId());
         verifyTeamMembership(team, userId);
 
         return taskListRepository
@@ -93,12 +83,8 @@ public class TaskListService {
     public TaskListResponse getTaskListById(UUID listId, UUID userId) {
         TaskList taskList = getTaskList(listId);
 
-        Map<UUID, Project> projectCache = new HashMap<>();
-        Map<UUID, Team> teamCache = new HashMap<>();
-
-        // Verify user has access to the project's team
-        Project project = getProjectCached(taskList.getProject().getId(), projectCache);
-        Team team = getTeamCached(project.getTeamId(), teamCache);
+        Project project = getProject(taskList.getProject().getId());
+        Team team = getTeam(project.getTeamId());
         verifyTeamMembership(team, userId);
 
         return mapper.toResponse(taskList);
@@ -108,12 +94,8 @@ public class TaskListService {
     public TaskListResponse updateTaskList(UUID listId, TaskListUpdateRequest request, User user) {
         TaskList taskList = getTaskList(listId);
 
-        Map<UUID, Project> projectCache = new HashMap<>();
-        Map<UUID, Team> teamCache = new HashMap<>();
-
-        // Verify user has permission
-        Project project = getProjectCached(taskList.getProject().getId(), projectCache);
-        Team team = getTeamCached(project.getTeamId(), teamCache);
+        Project project = getProject(taskList.getProject().getId());
+        Team team = getTeam(project.getTeamId());
         TeamMembership membership = verifyTeamMembership(team, user.getId());
 
         if (membership.getRole() == TeamRole.MEMBER) {
@@ -136,12 +118,8 @@ public class TaskListService {
     public void deleteTaskList(UUID listId, User user) {
         TaskList taskList = getTaskList(listId);
 
-        Map<UUID, Project> projectCache = new HashMap<>();
-        Map<UUID, Team> teamCache = new HashMap<>();
-
-        // Verify user has permission
-        Project project = getProjectCached(taskList.getProject().getId(), projectCache);
-        Team team = getTeamCached(project.getTeamId(), teamCache);
+        Project project = getProject(taskList.getProject().getId());
+        Team team = getTeam(project.getTeamId());
         TeamMembership membership = verifyTeamMembership(team, user.getId());
 
         if (membership.getRole() == TeamRole.MEMBER) {
@@ -154,30 +132,36 @@ public class TaskListService {
 
     @Transactional
     public void reorderTaskLists(UUID projectId, List<UUID> orderedListIds, User user) {
-        Map<UUID, Project> projectCache = new HashMap<>();
-        Map<UUID, Team> teamCache = new HashMap<>();
-        // Get project and verify access
-        Project project = getProjectCached(projectId, projectCache);
-        Team team = getTeamCached(project.getTeamId(), teamCache);
+        Project project = getProject(projectId);
+        Team team = getTeam(project.getTeamId());
         TeamMembership membership = verifyTeamMembership(team, user.getId());
 
         if (membership.getRole() == TeamRole.MEMBER) {
             throw new TaskListException("Only team owners and admins can reorder task lists");
         }
 
-        // Update positions
+        // Fetch all lists in one query
+        List<TaskList> allLists = taskListRepository.findByProject_IdAndIsDeletedFalseOrderByPositionAsc(projectId);
+        Map<UUID, TaskList> listMap = allLists.stream()
+                .collect(Collectors.toMap(TaskList::getId, tl -> tl));
+
+        // Update positions in memory
         for (int i = 0; i < orderedListIds.size(); i++) {
             UUID listId = orderedListIds.get(i);
-            TaskList taskList = getTaskList(listId);
+            TaskList taskList = listMap.get(listId);
 
-            // Verify task list belongs to this project
+            if (taskList == null) {
+                throw new TaskListNotFoundException("Task list not found with id: " + listId);
+            }
             if (!taskList.getProject().getId().equals(projectId)) {
                 throw new TaskListException("Task list does not belong to this project");
             }
 
             taskList.setPosition((i + 1) * 1000.0);
-            taskListRepository.save(taskList);
         }
+
+        // Batch save all at once
+        taskListRepository.saveAll(allLists);
     }
 
     // Helper methods
@@ -193,17 +177,9 @@ public class TaskListService {
                 .orElseThrow(() -> new ProjectNotFoundException("Project not found with id: " + projectId));
     }
 
-    private Project getProjectCached(UUID projectId, Map<UUID, Project> cache) {
-        return cache.computeIfAbsent(projectId, this::getProject);
-    }
-
     private Team getTeam(UUID teamId) {
         return teamRepository.findByIdWithMembershipsAndUsers(teamId)
                 .orElseThrow(() -> new TeamNotFoundException("Team not found with id: " + teamId));
-    }
-
-    private Team getTeamCached(UUID teamId, Map<UUID, Team> cache) {
-        return cache.computeIfAbsent(teamId, this::getTeam);
     }
 
     private TeamMembership verifyTeamMembership(Team team, UUID userId) {

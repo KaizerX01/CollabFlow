@@ -24,5 +24,16 @@ public class TeamMembershipId implements Serializable {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || Hibernate.getClass(this) != Hibernate.getClass(o)) return false;
+        TeamMembershipId that = (TeamMembershipId) o;
+        return Objects.equals(teamId, that.teamId) && Objects.equals(userId, that.userId);
+    }
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(teamId, userId);
+    }
 }

@@ -1,4 +1,5 @@
 // App.tsx - UPDATED VERSION
+import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from './context/ToastContext';
@@ -9,7 +10,9 @@ import AuthForm from './components/auth/AuthForm';
 import { AuthProvider } from './context/AuthContext';
 import { ProjectList } from './pages/ProjectsList';
 import { ProjectDetails } from './pages/ProjectDetails';
-import { KanbanWorkspace } from './pages/KanbanWorkspace'; // NEW IMPORT
+import { KanbanWorkspace } from './pages/KanbanWorkspace';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,28 +29,42 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <BrowserRouter>
+            <ErrorBoundary>
+            <Suspense fallback={
+              <div className="min-h-screen flex items-center justify-center bg-slate-950">
+                <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            }>
             <Routes>
-              {/* Auth */}
+              {/* Public routes */}
               <Route path="/login" element={<AuthForm />} />
-              
-              {/* Teams */}
-              <Route path="/teams" element={<TeamsList />} />
-              <Route path="/teams/:teamId" element={<TeamDetails />} />
               <Route path="/invite/:token" element={<InviteAccept />} />
               
-              {/* Projects - nested under teams */}
-              <Route path="/teams/:teamId/projects" element={<ProjectList />} />
-              <Route path="/teams/:teamId/projects/:projectId" element={<ProjectDetails />} />
-              
-              {/* NEW: Kanban Workspace - Main task management interface */}
-              <Route 
-                path="/teams/:teamId/projects/:projectId/workspace" 
-                element={<KanbanWorkspace />} 
-              />
+              {/* Protected routes — redirect to /login if unauthenticated */}
+              <Route element={<ProtectedRoute />}>
+                {/* Teams */}
+                <Route path="/teams" element={<TeamsList />} />
+                <Route path="/teams/:teamId" element={<TeamDetails />} />
+                
+                {/* Projects - nested under teams */}
+                <Route path="/teams/:teamId/projects" element={<ProjectList />} />
+                <Route path="/teams/:teamId/projects/:projectId" element={<ProjectDetails />} />
+                
+                {/* Kanban Workspace */}
+                <Route 
+                  path="/teams/:teamId/projects/:projectId/workspace" 
+                  element={<KanbanWorkspace />} 
+                />
+              </Route>
               
               {/* Default redirect */}
               <Route path="/" element={<Navigate to="/login" replace />} />
+              
+              {/* 404 catch-all */}
+              <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
+            </Suspense>
+            </ErrorBoundary>
           </BrowserRouter>
         </ToastProvider>
       </QueryClientProvider>

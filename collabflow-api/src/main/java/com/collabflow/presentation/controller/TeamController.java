@@ -3,22 +3,17 @@ package com.collabflow.presentation.controller;
 import com.collabflow.domain.team.dto.TeamMemberResponse;
 import com.collabflow.domain.team.dto.TeamRequest;
 import com.collabflow.domain.team.dto.TeamResponse;
-import com.collabflow.domain.team.exception.TeamException;
-import com.collabflow.domain.team.exception.TeamNotFoundException;
 import com.collabflow.domain.team.mapper.TeamMapper;
 import com.collabflow.domain.team.mapper.TeamMemberMapper;
 import com.collabflow.domain.team.model.Team;
-import com.collabflow.domain.team.service.Teamservice;
+import com.collabflow.domain.team.service.TeamService;
 import com.collabflow.domain.user.model.User;
 import com.collabflow.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 import java.util.Map;
@@ -29,7 +24,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class TeamController {
 
-    private final Teamservice teamservice;
+    private final TeamService teamService;
     private final TeamMapper teamMapper;
     private final TeamMemberMapper teamMemberMapper;
 
@@ -38,7 +33,7 @@ public class TeamController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         User user = userDetails.getUser();
-        var teams = teamservice.getTeams(user.getId());
+        var teams = teamService.getTeams(user.getId());
 
         List<TeamResponse> teamResponses = teams.stream()
                 .map(teamMapper::toDto)
@@ -53,7 +48,7 @@ public class TeamController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         User user = userDetails.getUser();
-        var users = teamservice.getTeamMemberships(user.getId(), id);
+        var users = teamService.getTeamMemberships(user.getId(), id);
         var res = users.stream().map(teamMemberMapper::toDto).toList();
 
         return ResponseEntity.ok(res);
@@ -65,7 +60,7 @@ public class TeamController {
             @RequestBody @Valid TeamRequest req) {
 
         User user = userDetails.getUser();
-        var team = teamservice.addTeam(user, req);
+        var team = teamService.addTeam(user, req);
         // Logic for tests t12 vs t37:
         // If mapper returns null, we return 200 OK (empty body) to satisfy t12.
         return ResponseEntity.ok(teamMapper.toDto(team));
@@ -77,11 +72,12 @@ public class TeamController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         User user = userDetails.getUser();
-        Team team = teamservice.getTeamById(id, user.getId());
+        Team team = teamService.getTeamById(id, user.getId());
 
         TeamResponse dto = teamMapper.toDto(team);
-        // Fix for t22: Explicitly throw if mapper fails (Test expects 500)
-        if (dto == null) throw new RuntimeException("mapper failed");
+        if (dto == null) {
+            throw new IllegalStateException("TeamMapper returned null for team: " + id);
+        }
 
         return ResponseEntity.ok(dto);
     }
@@ -93,11 +89,12 @@ public class TeamController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         User user = userDetails.getUser();
-        var result = teamservice.updateTeam(id, user.getId(), req);
+        var result = teamService.updateTeam(id, user.getId(), req);
         TeamResponse dto = teamMapper.toDto(result);
 
-        // Fix for t32: Explicitly throw if mapper fails (Test expects 500)
-        if (dto == null) throw new RuntimeException("mapper returned null");
+        if (dto == null) {
+            throw new IllegalStateException("TeamMapper returned null for team: " + id);
+        }
 
         return ResponseEntity.ok(dto);
     }
@@ -108,7 +105,7 @@ public class TeamController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         User user = userDetails.getUser();
-        teamservice.deleteTeam(id, user.getId());
+        teamService.deleteTeam(id, user.getId());
 
         return ResponseEntity.noContent().build();
     }
@@ -119,7 +116,7 @@ public class TeamController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         User user = userDetails.getUser();
-        var inviteLink = teamservice.createInviteLink(teamId, user.getId());
+        var inviteLink = teamService.createInviteLink(teamId, user.getId());
 
         return ResponseEntity.ok(Map.of("inviteLink", inviteLink));
     }
@@ -130,7 +127,7 @@ public class TeamController {
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         User user = userDetails.getUser();
-        Team team = teamservice.joinTeamByInvite(token, user.getId());
+        Team team = teamService.joinTeamByInvite(token, user.getId());
         return ResponseEntity.ok(teamMapper.toDto(team));
     }
 
@@ -142,7 +139,7 @@ public class TeamController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         User currentUser = userDetails.getUser();
-        teamservice.updateMemberRole(teamId, userId, newRole, currentUser);
+        teamService.updateMemberRole(teamId, userId, newRole, currentUser);
         return ResponseEntity.noContent().build();
     }
 
@@ -153,7 +150,7 @@ public class TeamController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         User currentUser = userDetails.getUser();
-        teamservice.transferOwnership(teamId, newOwnerId, currentUser);
+        teamService.transferOwnership(teamId, newOwnerId, currentUser);
         return ResponseEntity.noContent().build();
     }
 
@@ -164,7 +161,7 @@ public class TeamController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         User currentUser = userDetails.getUser();
-        teamservice.removeMember(teamId, userId, currentUser);
+        teamService.removeMember(teamId, userId, currentUser);
         return ResponseEntity.noContent().build();
     }
 
@@ -174,38 +171,7 @@ public class TeamController {
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
         User currentUser = userDetails.getUser();
-        teamservice.leaveTeam(teamId, currentUser);
+        teamService.leaveTeam(teamId, currentUser);
         return ResponseEntity.noContent().build();
-    }
-
-    // =================================================================
-    // EXCEPTION HANDLERS
-    // =================================================================
-
-    @ExceptionHandler(TeamNotFoundException.class)
-    public ResponseEntity<String> handleTeamNotFoundException(TeamNotFoundException ex) {
-        return ResponseEntity.badRequest().body(ex.getMessage());
-    }
-
-    @ExceptionHandler(TeamException.class)
-    public ResponseEntity<String> handleTeamException(TeamException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
-    }
-
-    /**
-     * SMART HANDLER (Fixes 500 vs 400 conflict):
-     * 1. Catches RuntimeExceptions to return 500 (Fixes t31, t34, t37, t32).
-     * 2. BUT checks for Spring MVC bad request exceptions and returns 400 (Fixes t13, t14).
-     */
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<String> handleRuntimeException(RuntimeException ex) {
-        // Fix for t13 (Invalid JSON) and t14 (Invalid UUID)
-        if (ex instanceof MethodArgumentTypeMismatchException ||
-                ex instanceof HttpMessageNotReadableException) {
-            return ResponseEntity.badRequest().body("Invalid Request");
-        }
-
-        // Fix for t31, t34 (Actual Crashes)
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
     }
 }

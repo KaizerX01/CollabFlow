@@ -1,7 +1,6 @@
 package com.collabflow.domain.tasklist.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,7 +12,10 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TaskListCreateRequest {
-    @NotNull(message = "Project ID is required")
+    /**
+     * @deprecated projectId is now taken from the URL path variable.
+     * Kept for backwards-compatibility but ignored by the service layer.
+     */
     private UUID projectId;
 
     @NotBlank(message = "Name is required")

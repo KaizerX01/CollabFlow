@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import { clearAccessToken } from '../api/tokenStore';
 
-interface User {
+export interface User {
     id: string;
     email: string;
     username: string;
@@ -39,9 +40,24 @@ const saveUserToStorage = (user: User | null) => {
 const getUserFromStorage = (): User | null => {
     try {
         const stored = localStorage.getItem(USER_STORAGE_KEY);
-        return stored ? JSON.parse(stored) : null;
+        if (!stored) return null;
+        const parsed = JSON.parse(stored);
+        // Validate the shape has the required fields
+        if (
+            typeof parsed === 'object' &&
+            parsed !== null &&
+            typeof parsed.id === 'string' &&
+            typeof parsed.email === 'string' &&
+            typeof parsed.username === 'string'
+        ) {
+            return parsed as User;
+        }
+        // Invalid shape — clear corrupted data
+        localStorage.removeItem(USER_STORAGE_KEY);
+        return null;
     } catch (error) {
         console.error('Failed to parse user from storage:', error);
+        localStorage.removeItem(USER_STORAGE_KEY);
         return null;
     }
 };
@@ -51,26 +67,25 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
         // Initialize from localStorage on mount
         return getUserFromStorage();
     });
-    const [isLoading, setIsLoading] = useState(false);
 
-    const setUser = (user: User | null) => {
+    const setUser = useCallback((user: User | null) => {
         setCurrentUser(user);
         saveUserToStorage(user);
-    };
+    }, []);
 
-    const clearUser = () => {
+    const clearUser = useCallback(() => {
         setCurrentUser(null);
         localStorage.removeItem(USER_STORAGE_KEY);
-        localStorage.removeItem('access_token');
-    };
+        clearAccessToken();
+    }, []);
 
     const value = useMemo(() => ({
         currentUser,
         currentUserId: currentUser?.id || null,
-        isLoading,
+        isLoading: false,
         setUser,
         clearUser,
-    }), [currentUser, isLoading]);
+    }), [currentUser, setUser, clearUser]);
 
     return (
         <AuthContext.Provider value={value}>

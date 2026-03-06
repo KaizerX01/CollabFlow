@@ -12,7 +12,7 @@ import java.util.UUID;
 public interface TeamRepository extends JpaRepository<Team, UUID> {
 
 
-    @Query("SELECT t from Team t join t.teamMemberships tm where tm.user.id= :id ORDER BY t.createdAt DESC")
+    @Query("SELECT DISTINCT t FROM Team t LEFT JOIN FETCH t.teamMemberships tm LEFT JOIN FETCH tm.user WHERE tm.user.id = :id ORDER BY t.createdAt DESC")
     List<Team> findAllByUserId(UUID id);
 
     @Query("SELECT t FROM Team t LEFT JOIN FETCH t.teamMemberships tm LEFT JOIN FETCH tm.user WHERE t.id = :teamId")

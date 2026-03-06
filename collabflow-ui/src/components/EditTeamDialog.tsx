@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Modal, Button } from './shared';
 import { useUpdateTeam } from '../hooks/useTeams';
 import { useToast } from '../hooks/use-toast';
+import { isAxiosError } from 'axios';
 import type { TeamDetails } from '../api/teams';
 
 interface EditTeamDialogProps {
@@ -39,8 +40,9 @@ export const EditTeamDialog: React.FC<EditTeamDialogProps> = ({ open, onOpenChan
           showToast('success', 'Team updated successfully');
           onOpenChange(false);
         },
-        onError: (error: any) => {
-          showToast('error', error.response?.data?.message || 'Failed to update team');
+        onError: (error: Error) => {
+          const msg = isAxiosError(error) ? error.response?.data?.message : undefined;
+          showToast('error', msg || 'Failed to update team');
         },
       }
     );

@@ -39,8 +39,7 @@ export interface TaskResponse {
   position: number;
   priority: number;
   dueDate: string | null;
-  completed: boolean;  // Backend sends "isCompleted" but Jackson/Lombok converts to "completed"
-  isCompleted: boolean; // Keep both for compatibility
+  completed: boolean;
   isDeleted: boolean;
   deleted: boolean;
   version: number;

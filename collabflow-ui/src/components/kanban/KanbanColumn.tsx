@@ -21,8 +21,10 @@ interface KanbanColumnProps {
   list: TaskListResponse;
   projectId: string;
   onCreateTask: () => void;
-  dragHandleProps?: any;
+  dragHandleProps?: React.HTMLAttributes<HTMLElement>;
   isDragging?: boolean;
+  searchQuery?: string;
+  filterPriority?: number | null;
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
@@ -31,6 +33,8 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   onCreateTask,
   dragHandleProps,
   isDragging = false,
+  searchQuery = '',
+  filterPriority = null,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -76,8 +80,22 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     });
   };
 
-  const taskCount = tasks?.length || 0;
-  const completedCount = tasks?.filter(t => t.isCompleted).length || 0;
+  // Apply search and filter
+  const filteredTasks = tasks?.filter(task => {
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const matchesTitle = task.title?.toLowerCase().includes(q);
+      const matchesDesc = task.description?.toLowerCase().includes(q);
+      if (!matchesTitle && !matchesDesc) return false;
+    }
+    if (filterPriority !== null && filterPriority !== undefined) {
+      if (task.priority !== filterPriority) return false;
+    }
+    return true;
+  });
+
+  const taskCount = filteredTasks?.length || 0;
+  const completedCount = filteredTasks?.filter(t => t.completed).length || 0;
 
   return (
     <motion.div
@@ -124,6 +142,8 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-haspopup="true"
+                aria-expanded={isMenuOpen}
                 className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
               >
                 <MoreVertical className="w-4 h-4" />
@@ -138,13 +158,14 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: -10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    className="absolute right-0 top-10 z-20 w-48 rounded-lg bg-slate-800 border border-white/10 shadow-xl overflow-hidden"
-                  >
+                    className="absolute right-0 top-10 z-20 w-48 rounded-lg bg-slate-800 border border-white/10 shadow-xl overflow-hidden"                    role="menu"
+                    aria-orientation="vertical"                  >
                     <button
                       onClick={() => {
                         setIsEditing(true);
                         setIsMenuOpen(false);
                       }}
+                      role="menuitem"
                       className="w-full px-4 py-2 text-left text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -152,6 +173,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
                     </button>
                     <button
                       onClick={handleDeleteClick}
+                      role="menuitem"
                       className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors flex items-center gap-2"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -204,10 +226,10 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
             </div>
           ) : (
             <SortableContext
-              items={tasks?.map(task => task.id) || []}
+              items={filteredTasks?.map(task => task.id) || []}
               strategy={verticalListSortingStrategy}
             >
-              {tasks?.map((task) => (
+              {filteredTasks?.map((task) => (
                 <SortableTaskCard key={task.id} task={task} projectId={projectId} />
               ))}
             </SortableContext>

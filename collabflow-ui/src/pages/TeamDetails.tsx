@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, lazy } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -21,8 +21,11 @@ import { EditTeamDialog } from '../components/EditTeamDialog';
 import { InviteDialog } from '../components/InviteDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { TeamDetailsSkeletons, Button } from '../components/shared';
-import { PremiumBackground } from '../components/PremiumBackground';
 import type { TeamMember } from '../api/teams';
+
+const PremiumBackground = lazy(() =>
+  import('../components/PremiumBackground').then((m) => ({ default: m.PremiumBackground }))
+);
 import { useAuth } from '../context/AuthContext';
 
 export const TeamDetails: React.FC = () => {

@@ -3,6 +3,7 @@ package com.collabflow.security;
 import com.collabflow.domain.user.model.User;
 import com.collabflow.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.*;
 import org.springframework.stereotype.Service;
@@ -22,5 +23,14 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + identifier));
 
         return new CustomUserDetails(user);
+    }
+
+    /**
+     * Evicts the cached {@link UserDetails} for the given identifier (username or email).
+     * Call this when user credentials or roles change (e.g. password update).
+     */
+    @CacheEvict(cacheNames = "userDetailsByIdentifier", key = "#identifier")
+    public void evictUserCache(String identifier) {
+        // Spring AOP handles the eviction; method body intentionally empty.
     }
 }

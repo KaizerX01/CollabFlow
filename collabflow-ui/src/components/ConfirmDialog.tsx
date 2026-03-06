@@ -12,7 +12,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: 'danger' | 'warning' | 'info';
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   isLoading?: boolean;
 }
 
@@ -60,9 +60,12 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   const config = variantConfig[variant];
   const Icon = config.icon;
 
-  const handleConfirm = () => {
-    onConfirm();
-    onOpenChange(false);
+  const handleConfirm = async () => {
+    try {
+      await onConfirm();
+    } finally {
+      onOpenChange(false);
+    }
   };
 
   return (

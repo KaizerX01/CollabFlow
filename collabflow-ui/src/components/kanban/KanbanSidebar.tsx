@@ -13,9 +13,9 @@ import {
 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { useProjectTasks } from '../../hooks/useTasks';
-import { useProject } from '../../hooks/useProjects';
 import { useTeamDetails } from '../../hooks/useTeams';
 import { formatDistanceToNow } from 'date-fns';
+import { ChatPanel } from './ChatPanel';
 
 interface KanbanSidebarProps {
   projectId: string;
@@ -87,11 +87,11 @@ export const KanbanSidebar: React.FC<KanbanSidebarProps> = ({ projectId, onClose
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className={`flex-1 ${activeTab === 'chat' ? 'overflow-hidden p-0' : 'overflow-y-auto p-6'} relative`}>
         {activeTab === 'analytics' && <AnalyticsTab projectId={projectId} />}
         {activeTab === 'activity' && <ActivityTab projectId={projectId} />}
         {activeTab === 'team' && <TeamTab projectId={projectId} />}
-        {activeTab === 'chat' && <ChatTab />}
+        {activeTab === 'chat' && <ChatPanel projectId={projectId} />}
         {activeTab === 'files' && <FilesTab />}
       </div>
     </motion.div>
@@ -128,14 +128,18 @@ const AnalyticsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 
   const last7Days = getLast7Days();
   const tasksByDay = last7Days.map(day => {
-    const dayStart = new Date(day.setHours(0, 0, 0, 0));
-    const dayEnd = new Date(day.setHours(23, 59, 59, 999));
+    const dayStart = new Date(day);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(day);
+    dayEnd.setHours(23, 59, 59, 999);
     
     return tasks?.filter(task => {
       const createdAt = new Date(task.createdAt);
       return createdAt >= dayStart && createdAt <= dayEnd;
     }).length || 0;
   });
+
+  const dayLabels = last7Days.map(day => day.toLocaleDateString('en', { weekday: 'short' }));
 
   const maxTasks = Math.max(...tasksByDay, 1);
 
@@ -189,7 +193,7 @@ const AnalyticsTab: React.FC<{ projectId: string }> = ({ projectId }) => {
                   )}
                 </motion.div>
                 <span className="text-xs text-slate-500">
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index]}
+                  {dayLabels[index]}
                 </span>
               </div>
             );
@@ -343,9 +347,8 @@ const ActivityTab: React.FC<{ projectId: string }> = ({ projectId }) => {
 };
 
 // Team Tab - REAL DATA
-const TeamTab: React.FC<{ projectId: string }> = ({ projectId }) => {
+const TeamTab: React.FC<{ projectId: string }> = ({ projectId: _projectId }) => {
   const { teamId } = useParams<{ teamId: string }>();
-  const { data: project } = useProject(projectId);
   const { data: teamDetails, isLoading } = useTeamDetails(teamId!);
 
   if (isLoading) {
@@ -412,20 +415,7 @@ const TeamTab: React.FC<{ projectId: string }> = ({ projectId }) => {
   );
 };
 
-// Chat Tab - PLACEHOLDER
-const ChatTab: React.FC = () => {
-  return (
-    <div className="flex flex-col items-center justify-center h-full text-center">
-      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center mb-4">
-        <MessageSquare className="w-10 h-10 text-purple-400" />
-      </div>
-      <h3 className="text-lg font-semibold text-white mb-2">Chat Coming Soon</h3>
-      <p className="text-sm text-slate-400 max-w-xs">
-        Team chat and collaboration features will be available here
-      </p>
-    </div>
-  );
-};
+
 
 // Files Tab - PLACEHOLDER
 const FilesTab: React.FC = () => {

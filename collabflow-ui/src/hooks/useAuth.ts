@@ -1,13 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import api from "../api/axiosInstance";
-
-// User DTO matching backend
-export interface User {
-  id: string;
-  username: string;
-  email: string;
-  avatar?: string;
-}
+import type { User } from "../context/AuthContext";
 
 // Request types
 export interface RegisterRequest {

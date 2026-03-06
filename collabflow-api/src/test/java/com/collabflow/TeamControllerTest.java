@@ -9,7 +9,7 @@ import com.collabflow.domain.team.mapper.TeamMemberMapper;
 import com.collabflow.domain.team.model.Team;
 import com.collabflow.domain.team.model.TeamMembership;
 import com.collabflow.domain.team.model.enums.TeamRole;
-import com.collabflow.domain.team.service.Teamservice;
+import com.collabflow.domain.team.service.TeamService;
 import com.collabflow.domain.user.model.User;
 import com.collabflow.security.CustomUserDetails;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,7 +50,7 @@ class TeamControllerExtendedTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private Teamservice teamservice;
+    private TeamService teamService;
 
     @MockBean
     private TeamMapper teamMapper;
@@ -84,7 +84,7 @@ class TeamControllerExtendedTest {
     @Test @DisplayName("1 - GET /api/teams returns single team")
     void t01_getTeams_single() throws Exception {
         Team t = new Team(); t.setId(UUID.randomUUID()); t.setName("Team A");
-        when(teamservice.getTeams(testUser.getId())).thenReturn(List.of(t));
+        when(teamService.getTeams(testUser.getId())).thenReturn(List.of(t));
         TeamResponse resp = new TeamResponse(); resp.setId(t.getId()); resp.setName("Team A"); resp.setCreatedAt(Instant.now());
         when(teamMapper.toDto(t)).thenReturn(resp);
 
@@ -96,7 +96,7 @@ class TeamControllerExtendedTest {
 
     @Test @DisplayName("2 - GET /api/teams returns empty array")
     void t02_getTeams_empty() throws Exception {
-        when(teamservice.getTeams(testUser.getId())).thenReturn(Collections.emptyList());
+        when(teamService.getTeams(testUser.getId())).thenReturn(Collections.emptyList());
         mockMvc.perform(get("/api/teams"))
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
@@ -106,7 +106,7 @@ class TeamControllerExtendedTest {
     void t03_getTeamById() throws Exception {
         UUID id = UUID.randomUUID();
         Team t = new Team(); t.setId(id); t.setName("X");
-        when(teamservice.getTeamById(eq(id), eq(testUser.getId()))).thenReturn(t);
+        when(teamService.getTeamById(eq(id), eq(testUser.getId()))).thenReturn(t);
         TeamResponse r = new TeamResponse(); r.setId(id); r.setName("X"); r.setCreatedAt(Instant.now());
         when(teamMapper.toDto(t)).thenReturn(r);
 
@@ -120,7 +120,7 @@ class TeamControllerExtendedTest {
     void t04_createTeam() throws Exception {
         Map<String,Object> payload = Map.of("name","New S|W Team","description","desc");
         Team created = new Team(); created.setId(UUID.randomUUID()); created.setName("New S|W Team");
-        when(teamservice.addTeam(any(User.class), any())).thenReturn(created);
+        when(teamService.addTeam(any(User.class), any())).thenReturn(created);
         TeamResponse r = new TeamResponse(); r.setId(created.getId()); r.setName(created.getName()); r.setCreatedAt(Instant.now());
         when(teamMapper.toDto(created)).thenReturn(r);
 
@@ -136,7 +136,7 @@ class TeamControllerExtendedTest {
         UUID id = UUID.randomUUID();
         Map<String,Object> payload = Map.of("name","Updated","description","u");
         Team updated = new Team(); updated.setId(id); updated.setName("Updated");
-        when(teamservice.updateTeam(eq(id), eq(testUser.getId()), any())).thenReturn(updated);
+        when(teamService.updateTeam(eq(id), eq(testUser.getId()), any())).thenReturn(updated);
         TeamResponse r = new TeamResponse(); r.setId(id); r.setName("Updated"); r.setCreatedAt(Instant.now());
         when(teamMapper.toDto(updated)).thenReturn(r);
 
@@ -154,13 +154,13 @@ class TeamControllerExtendedTest {
         mockMvc.perform(delete("/api/teams/" + id).with(csrf()))
                 .andExpect(status().isNoContent());
 
-        verify(teamservice).deleteTeam(eq(id), any());
+        verify(teamService).deleteTeam(eq(id), any());
     }
 
     @Test @DisplayName("7 - POST /api/teams/{teamId}/invite returns link")
     void t07_createInvite() throws Exception {
         UUID tid = UUID.randomUUID();
-        when(teamservice.createInviteLink(eq(tid), eq(testUser.getId()))).thenReturn("LNK-42");
+        when(teamService.createInviteLink(eq(tid), eq(testUser.getId()))).thenReturn("LNK-42");
 
         mockMvc.perform(post("/api/teams/" + tid + "/invite").with(csrf()))
                 .andExpect(status().isOk())
@@ -171,7 +171,7 @@ class TeamControllerExtendedTest {
     void t08_joinTeam() throws Exception {
         String token = "token42";
         Team t = new Team(); t.setId(UUID.randomUUID()); t.setName("Joined");
-        when(teamservice.joinTeamByInvite(eq(token), eq(testUser.getId()))).thenReturn(t);
+        when(teamService.joinTeamByInvite(eq(token), eq(testUser.getId()))).thenReturn(t);
         TeamResponse r = new TeamResponse(); r.setId(t.getId()); r.setName("Joined"); r.setCreatedAt(Instant.now());
         when(teamMapper.toDto(t)).thenReturn(r);
 
@@ -183,7 +183,7 @@ class TeamControllerExtendedTest {
     @Test @DisplayName("9 - GET /api/teams/{id}/members returns list (empty)")
     void t09_getMembers_empty() throws Exception {
         UUID id = UUID.randomUUID();
-        when(teamservice.getTeamMemberships(testUser.getId(), id)).thenReturn(Set.of());
+        when(teamService.getTeamMemberships(testUser.getId(), id)).thenReturn(Set.of());
         mockMvc.perform(get("/api/teams/" + id + "/members"))
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
@@ -194,7 +194,7 @@ class TeamControllerExtendedTest {
         UUID id = UUID.randomUUID();
         TeamMembership memberModel = mock(TeamMembership.class);
 
-        when(teamservice.getTeamMemberships(eq(testUser.getId()), eq(id)))
+        when(teamService.getTeamMemberships(eq(testUser.getId()), eq(id)))
                 .thenReturn(Set.of(memberModel));
 
         TeamMemberResponse dto = new TeamMemberResponse(); dto.setId(UUID.randomUUID()); dto.setUsername("Alice"); dto.setRole(TeamRole.valueOf("MEMBER"));
@@ -262,7 +262,7 @@ class TeamControllerExtendedTest {
     @Test @DisplayName("17 - GET /api/teams/{id} -> TeamNotFoundException triggers 400")
     void t17_teamNotFoundHandler() throws Exception {
         UUID id = UUID.randomUUID();
-        when(teamservice.getTeamById(id, testUser.getId())).thenThrow(new TeamNotFoundException("not found"));
+        when(teamService.getTeamById(id, testUser.getId())).thenThrow(new TeamNotFoundException("not found"));
         mockMvc.perform(get("/api/teams/" + id))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(containsString("not found")));
@@ -271,7 +271,7 @@ class TeamControllerExtendedTest {
     @Test @DisplayName("18 - POST /api/teams -> TeamException triggers 401")
     void t18_teamExceptionHandler() throws Exception {
         Map<String,Object> payload = Map.of("name","X", "description","d");
-        when(teamservice.addTeam(any(), any())).thenThrow(new TeamException("forbidden action"));
+        when(teamService.addTeam(any(), any())).thenThrow(new TeamException("forbidden action"));
         mockMvc.perform(post("/api/teams").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
@@ -283,7 +283,7 @@ class TeamControllerExtendedTest {
     void t19_updateRuntimeException() throws Exception {
         UUID id = UUID.randomUUID();
         Map<String,Object> p = Map.of("name","boom");
-        when(teamservice.updateTeam(eq(id), eq(testUser.getId()), any())).thenThrow(new RuntimeException("boom"));
+        when(teamService.updateTeam(eq(id), eq(testUser.getId()), any())).thenThrow(new RuntimeException("boom"));
         mockMvc.perform(patch("/api/teams/" + id).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(p)))
@@ -293,7 +293,7 @@ class TeamControllerExtendedTest {
     @Test @DisplayName("20 - POST /api/teams/join -> invalid token -> TeamNotFound -> 400")
     void t20_join_invalidToken() throws Exception {
         String tok = "badtok";
-        when(teamservice.joinTeamByInvite(eq(tok), eq(testUser.getId()))).thenThrow(new TeamNotFoundException("invalid token"));
+        when(teamService.joinTeamByInvite(eq(tok), eq(testUser.getId()))).thenThrow(new TeamNotFoundException("invalid token"));
         mockMvc.perform(post("/api/teams/join/" + tok).with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(containsString("invalid token")));
@@ -303,7 +303,7 @@ class TeamControllerExtendedTest {
     void t21_deleteMember_serviceThrows() throws Exception {
         UUID teamId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        doThrow(new TeamException("cannot remove")).when(teamservice).removeMember(eq(teamId), eq(userId), any());
+        doThrow(new TeamException("cannot remove")).when(teamService).removeMember(eq(teamId), eq(userId), any());
         mockMvc.perform(delete("/api/teams/" + teamId + "/members/" + userId).with(csrf()))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().string(containsString("cannot remove")));
@@ -313,7 +313,7 @@ class TeamControllerExtendedTest {
     void t22_mapperReturnsNull() throws Exception {
         UUID id = UUID.randomUUID();
         Team t = new Team(); t.setId(id); t.setName("nullmap");
-        when(teamservice.getTeamById(id, testUser.getId())).thenReturn(t);
+        when(teamService.getTeamById(id, testUser.getId())).thenReturn(t);
         when(teamMapper.toDto(t)).thenReturn(null);
 
         mockMvc.perform(get("/api/teams/" + id))
@@ -323,7 +323,7 @@ class TeamControllerExtendedTest {
     @Test @DisplayName("23 - Invite created twice returns same link (idempotent)")
     void t23_invite_idempotent() throws Exception {
         UUID tid = UUID.randomUUID();
-        when(teamservice.createInviteLink(eq(tid), eq(testUser.getId()))).thenReturn("SAME");
+        when(teamService.createInviteLink(eq(tid), eq(testUser.getId()))).thenReturn("SAME");
         mockMvc.perform(post("/api/teams/" + tid + "/invite").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.inviteLink").value("SAME"));
@@ -332,7 +332,7 @@ class TeamControllerExtendedTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.inviteLink").value("SAME"));
 
-        verify(teamservice, Mockito.times(2)).createInviteLink(eq(tid), eq(testUser.getId()));
+        verify(teamService, Mockito.times(2)).createInviteLink(eq(tid), eq(testUser.getId()));
     }
 
     @Test
@@ -351,7 +351,7 @@ class TeamControllerExtendedTest {
         response.setName(t.getName());
 
         // Mock service and mapper
-        when(teamservice.joinTeamByInvite(eq(tok), eq(testUser.getId()))).thenReturn(t);
+        when(teamService.joinTeamByInvite(eq(tok), eq(testUser.getId()))).thenReturn(t);
         when(teamMapper.toDto(any(Team.class))).thenReturn(response);
 
         // First join
@@ -365,7 +365,7 @@ class TeamControllerExtendedTest {
                 .andExpect(jsonPath("$.name").value("joinedTwice"));
 
         // Verify service called twice
-        verify(teamservice, Mockito.times(2)).joinTeamByInvite(eq(tok), eq(testUser.getId()));
+        verify(teamService, Mockito.times(2)).joinTeamByInvite(eq(tok), eq(testUser.getId()));
     }
 
 
@@ -374,7 +374,7 @@ class TeamControllerExtendedTest {
         UUID t = UUID.randomUUID(); UUID u = UUID.randomUUID();
         mockMvc.perform(patch("/api/teams/" + t + "/members/" + u + "/role").with(csrf()).param("newRole","ADMIN"))
                 .andExpect(status().isNoContent());
-        verify(teamservice).updateMemberRole(eq(t), eq(u), eq("ADMIN"), any());
+        verify(teamService).updateMemberRole(eq(t), eq(u), eq("ADMIN"), any());
     }
 
     @Test @DisplayName("26 - Transfer ownership verifies invocation")
@@ -382,7 +382,7 @@ class TeamControllerExtendedTest {
         UUID t = UUID.randomUUID(); UUID newOwner = UUID.randomUUID();
         mockMvc.perform(patch("/api/teams/" + t + "/transfer-owner/" + newOwner).with(csrf()))
                 .andExpect(status().isNoContent());
-        verify(teamservice).transferOwnership(eq(t), eq(newOwner), any());
+        verify(teamService).transferOwnership(eq(t), eq(newOwner), any());
     }
 
     @Test @DisplayName("27 - Large list of teams -> ensure performance-ish behavior (200)")
@@ -391,7 +391,7 @@ class TeamControllerExtendedTest {
         List<Team> list = IntStream.range(0, n).mapToObj(i -> {
             Team tm = new Team(); tm.setId(UUID.randomUUID()); tm.setName("T"+i); return tm;
         }).collect(Collectors.toList());
-        when(teamservice.getTeams(testUser.getId())).thenReturn(list);
+        when(teamService.getTeams(testUser.getId())).thenReturn(list);
         when(teamMapper.toDto(any())).thenAnswer(inv -> {
             Team tm = inv.getArgument(0);
             TeamResponse r = new TeamResponse(); r.setId(tm.getId()); r.setName(tm.getName()); r.setCreatedAt(Instant.now());
@@ -408,7 +408,7 @@ class TeamControllerExtendedTest {
         UUID t = UUID.randomUUID(); UUID u = UUID.randomUUID();
         mockMvc.perform(delete("/api/teams/" + t + "/members/" + u).with(csrf()))
                 .andExpect(status().isNoContent());
-        verify(teamservice).removeMember(eq(t), eq(u), any());
+        verify(teamService).removeMember(eq(t), eq(u), any());
     }
 
     @Test @DisplayName("29 - Leave team success -> verify service used")
@@ -416,7 +416,7 @@ class TeamControllerExtendedTest {
         UUID t = UUID.randomUUID();
         mockMvc.perform(delete("/api/teams/" + t + "/leave").with(csrf()))
                 .andExpect(status().isNoContent());
-        verify(teamservice).leaveTeam(eq(t), any());
+        verify(teamService).leaveTeam(eq(t), any());
     }
 
     @Test @DisplayName("30 - Controller returns 415 when request content-type wrong")
@@ -436,7 +436,7 @@ class TeamControllerExtendedTest {
     @Test @DisplayName("31 - Create team when service throws IllegalState -> 500")
     void t31_create_illegalState() throws Exception {
         Map<String,Object> payload = Map.of("name","X");
-        when(teamservice.addTeam(any(), any())).thenThrow(new IllegalStateException("badstate"));
+        when(teamService.addTeam(any(), any())).thenThrow(new IllegalStateException("badstate"));
         mockMvc.perform(post("/api/teams").with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payload)))
@@ -446,7 +446,7 @@ class TeamControllerExtendedTest {
     @Test @DisplayName("32 - Update team when service returns null -> 500")
     void t32_update_nullReturned() throws Exception {
         UUID id = UUID.randomUUID();
-        when(teamservice.updateTeam(eq(id), eq(testUser.getId()), any())).thenReturn(null);
+        when(teamService.updateTeam(eq(id), eq(testUser.getId()), any())).thenReturn(null);
         mockMvc.perform(patch("/api/teams/" + id).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("name","n"))))
@@ -456,7 +456,7 @@ class TeamControllerExtendedTest {
     @Test @DisplayName("33 - Create invite when service returns empty string -> 200 with empty link")
     void t33_invite_emptyString() throws Exception {
         UUID tid = UUID.randomUUID();
-        when(teamservice.createInviteLink(eq(tid), eq(testUser.getId()))).thenReturn("");
+        when(teamService.createInviteLink(eq(tid), eq(testUser.getId()))).thenReturn("");
         mockMvc.perform(post("/api/teams/" + tid + "/invite").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.inviteLink").value(""));
@@ -465,7 +465,7 @@ class TeamControllerExtendedTest {
     @Test @DisplayName("34 - Update role when service throws runtime -> 500")
     void t34_updateRole_runtime() throws Exception {
         UUID t = UUID.randomUUID(); UUID u = UUID.randomUUID();
-        doThrow(new RuntimeException("err")).when(teamservice).updateMemberRole(eq(t), eq(u), eq("ADMIN"), any());
+        doThrow(new RuntimeException("err")).when(teamService).updateMemberRole(eq(t), eq(u), eq("ADMIN"), any());
         mockMvc.perform(patch("/api/teams/" + t + "/members/" + u + "/role").with(csrf()).param("newRole","ADMIN"))
                 .andExpect(status().isInternalServerError());
     }
@@ -473,7 +473,7 @@ class TeamControllerExtendedTest {
     @Test @DisplayName("35 - Transfer owner when service throws TeamException -> 401")
     void t35_transfer_owner_teamException() throws Exception {
         UUID t = UUID.randomUUID(); UUID newOwner = UUID.randomUUID();
-        doThrow(new TeamException("not allowed")).when(teamservice).transferOwnership(eq(t), eq(newOwner), any());
+        doThrow(new TeamException("not allowed")).when(teamService).transferOwnership(eq(t), eq(newOwner), any());
         mockMvc.perform(patch("/api/teams/" + t + "/transfer-owner/" + newOwner).with(csrf()))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().string(containsString("not allowed")));
@@ -482,7 +482,7 @@ class TeamControllerExtendedTest {
     @Test @DisplayName("36 - Delete team when service throws TeamNotFound -> 400")
     void t36_delete_team_notFound() throws Exception {
         UUID t = UUID.randomUUID();
-        doThrow(new TeamNotFoundException("no such team")).when(teamservice).deleteTeam(eq(t), any());
+        doThrow(new TeamNotFoundException("no such team")).when(teamService).deleteTeam(eq(t), any());
         mockMvc.perform(delete("/api/teams/" + t).with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(containsString("no such team")));
@@ -492,7 +492,7 @@ class TeamControllerExtendedTest {
     void t37_mapperThrowsOnCreate() throws Exception {
         Map<String,Object> payload = Map.of("name","M");
         Team c = new Team(); c.setId(UUID.randomUUID()); c.setName("M");
-        when(teamservice.addTeam(any(), any())).thenReturn(c);
+        when(teamService.addTeam(any(), any())).thenReturn(c);
         when(teamMapper.toDto(c)).thenThrow(new RuntimeException("mapper failed"));
 
         mockMvc.perform(post("/api/teams").with(csrf())
@@ -505,7 +505,7 @@ class TeamControllerExtendedTest {
     void t38_mapperNullInList() throws Exception {
         Team a = new Team(); a.setId(UUID.randomUUID()); a.setName("a");
         Team b = new Team(); b.setId(UUID.randomUUID()); b.setName("b");
-        when(teamservice.getTeams(testUser.getId())).thenReturn(List.of(a,b));
+        when(teamService.getTeams(testUser.getId())).thenReturn(List.of(a,b));
         when(teamMapper.toDto(a)).thenReturn(new TeamResponse(){{
             setId(a.getId()); setName("a");
         }});
@@ -525,7 +525,7 @@ class TeamControllerExtendedTest {
         // but this test ensures the response still returns that team (business logic elsewhere should prevent).
         UUID id = UUID.randomUUID();
         Team t = new Team(); t.setId(id); t.setName("external");
-        when(teamservice.getTeamById(id, testUser.getId())).thenReturn(t);
+        when(teamService.getTeamById(id, testUser.getId())).thenReturn(t);
         when(teamMapper.toDto(t)).thenReturn(new TeamResponse(){{
             setId(id); setName("external");
         }});

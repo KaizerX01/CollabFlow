@@ -15,7 +15,7 @@ import com.collabflow.domain.team.repository.TeamRepository;
 import com.collabflow.domain.user.exception.UserNotFoundException;
 import com.collabflow.domain.user.model.User;
 import com.collabflow.domain.user.repository.UserRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -29,8 +29,8 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
-public class Teamservice {
+@Transactional(readOnly = true)
+public class TeamService {
 
     private final TeamMembershipRepository teamMembershipRepository;
     @Value("${app.frontend.base-url}")
@@ -47,8 +47,8 @@ public class Teamservice {
     }
 
     public Team getTeamById(UUID teamId, UUID userId) {
-        // Find the team
-        Team team = teamRepository.findById(teamId)
+        // Use fetch-join query to avoid N+1
+        Team team = teamRepository.findByIdWithMembershipsAndUsers(teamId)
                 .orElseThrow(() -> new TeamNotFoundException("Team not found with id: " + teamId));
 
         // Verify user has access to this team (is a member)
@@ -208,15 +208,16 @@ public class Teamservice {
 
         // Add user as member
         TeamMembership membership = new TeamMembership();
+        TeamMembershipId membershipId = new TeamMembershipId();
+        membershipId.setTeamId(team.getId());
+        membershipId.setUserId(user.getId());
+        membership.setId(membershipId);
         membership.setTeam(team);
         membership.setUser(user);
         membership.setRole(TeamRole.MEMBER);
         membership.setJoinedAt(Instant.now());
 
         team.getTeamMemberships().add(membership);
-
-        invite.setIsActive(false);
-        teamInviteRepository.save(invite);
 
         teamRepository.save(team);
 
@@ -226,11 +227,17 @@ public class Teamservice {
 
 
 
+    @Transactional
     public void updateMemberRole(UUID teamId, UUID targetUserId, String newRoleStr, User actingUser) {
 
         Team team = getTeam(teamId);
 
         TeamRole newRole = TeamRole.valueOf(newRoleStr.toUpperCase());
+
+        // Prevent assigning OWNER role through this method — use transferOwnership instead
+        if (newRole == TeamRole.OWNER) {
+            throw new TeamException("Cannot assign OWNER role directly. Use ownership transfer instead.");
+        }
 
         // Find the acting user's membership
         TeamMembership actingMembership = team.getTeamMemberships().stream()

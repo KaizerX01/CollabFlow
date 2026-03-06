@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Sparkles, Users, Zap } from 'lucide-react';
@@ -6,7 +6,10 @@ import { useTeams } from '../hooks/useTeams';
 import { TeamCard } from '../components/TeamCard';
 import { CreateTeamDialog } from '../components/CreateTeamDialog';
 import { CardSkeleton, Button } from '../components/shared';
-import { PremiumBackground } from '../components/PremiumBackground';
+
+const PremiumBackground = lazy(() =>
+  import('../components/PremiumBackground').then((m) => ({ default: m.PremiumBackground }))
+);
 
 export const TeamsList: React.FC = () => {
   const navigate = useNavigate();

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Modal, Button } from './shared';
 import { useCreateTeam } from '../hooks/useTeams';
 import { useToast } from '../hooks/use-toast';
+import { isAxiosError } from 'axios';
 
 interface CreateTeamDialogProps {
   open: boolean;
@@ -32,8 +33,9 @@ export const CreateTeamDialog: React.FC<CreateTeamDialogProps> = ({ open, onOpen
           setDescription('');
           onOpenChange(false);
         },
-        onError: (error: any) => {
-          showToast('error', error.response?.data?.message || 'Failed to create team');
+        onError: (error: Error) => {
+          const msg = isAxiosError(error) ? error.response?.data?.message : undefined;
+          showToast('error', msg || 'Failed to create team');
         },
       }
     );
@@ -147,7 +149,7 @@ export const CreateTeamDialog: React.FC<CreateTeamDialogProps> = ({ open, onOpen
                 Build Something Amazing
               </h4>
               <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                Create a new Create a new team to collaborate with others and achieve your goals together.
+                Create a new team to collaborate with others and achieve your goals together.
               </p>
             </div>
           </div>

@@ -64,8 +64,7 @@ export const useUpdateTask = (projectId: string, taskListId?: string) => {
     mutationFn: ({ taskId, data }: { taskId: string; data: TaskUpdateRequest }) =>
       tasksApi.update(taskId, data),
     onSuccess: (updatedTask) => {
-      // Invalidate all task-related queries
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      // Invalidate only the affected task list and project, not all tasks globally
       queryClient.invalidateQueries({ queryKey: taskKeys.byTaskList(updatedTask.taskListId) });
       queryClient.invalidateQueries({ queryKey: taskKeys.byProject(projectId) });
       queryClient.invalidateQueries({ queryKey: taskKeys.byId(updatedTask.id) });
@@ -210,42 +209,4 @@ export const useDeleteTask = (projectId: string, taskListId?: string) => {
       }
     },
   });
-};
-
-// Optimistic update helper for drag and drop
-export const useOptimisticTaskMove = () => {
-  const queryClient = useQueryClient();
-
-  return {
-    onMutate: async ({ taskId, data }: { taskId: string; data: TaskMoveRequest }) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: taskKeys.all });
-
-      // Snapshot previous value
-      const previousTasks = queryClient.getQueriesData({ queryKey: taskKeys.all });
-
-      // Optimistically update to the new value
-      queryClient.setQueriesData<TaskResponse[]>(
-        { queryKey: taskKeys.all },
-        (old) => {
-          if (!old) return old;
-          return old.map((task) =>
-            task.id === taskId
-              ? { ...task, taskListId: data.newTaskListId, position: data.newPosition }
-              : task
-          );
-        }
-      );
-
-      return { previousTasks };
-    },
-    onError: (_err: any, _variables: any, context: any) => {
-      // Rollback on error
-      if (context?.previousTasks) {
-        context.previousTasks.forEach(([queryKey, data]: any) => {
-          queryClient.setQueryData(queryKey, data);
-        });
-      }
-    },
-  };
 };

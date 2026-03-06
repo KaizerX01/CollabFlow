@@ -10,12 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Users, Loader2, Mail, Lock, User} from "lucide-react";
 import { useLogin, useRegister } from "../../hooks/useAuth";
 import { api } from "../../api/axiosInstance";
+import { setAccessToken } from "../../api/tokenStore";
+import { isAxiosError } from "axios";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from 'react-router-dom';
 import { useToast } from "../../hooks/use-toast";
 
 const loginSchema = z.object({
-  usernameOrEmail: z.string().email("Invalid email address"),
+  usernameOrEmail: z.string().min(1, "Username or email is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
@@ -35,7 +37,8 @@ type LoginFormData = z.infer<typeof loginSchema>;
 type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function AuthForm() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [isRegisterLoading, setIsRegisterLoading] = useState(false);
   const { setUser } = useAuth();
   const navigate = useNavigate(); 
   const { showToast } = useToast();
@@ -52,54 +55,43 @@ export default function AuthForm() {
   const loginMutation = useLogin();
 
   const onLogin = async (data: LoginFormData) => {
-  setIsLoading(true);
+  setIsLoginLoading(true);
   try {
     const res = await loginMutation.mutateAsync(data);
 
-    console.log("🔍 LOGIN RESPONSE:", res);
-    console.log("🔍 USER DATA:", res.user);
-    console.log("🔍 ACCESS TOKEN:", res.accessToken);
-
-    localStorage.setItem("access_token", res.accessToken);
+    setAccessToken(res.accessToken);
     api.defaults.headers.common["Authorization"] = `Bearer ${res.accessToken}`;
 
     if (res.user) {
-      console.log("✅ Setting user:", res.user);
       setUser(res.user);
-    } else {
-      console.error("❌ NO USER IN RESPONSE!");
     }
 
     showToast("success", "Login successful! Redirecting...");
-    setTimeout(() => navigate("/teams"), 1500);
-  } catch (err: any) {
-    showToast("error", err.response?.data?.message || "Login failed. Please try again.");
+    navigate("/teams");
+  } catch (err: unknown) {
+    const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
+    showToast("error", msg || "Login failed. Please try again.");
   } finally {
-    setIsLoading(false);
+    setIsLoginLoading(false);
   }
 };
 
-  const onRegister = (data: RegisterFormData) => {
-    setIsLoading(true);
-    registerMutation.mutate(
-      {
+  const onRegister = async (data: RegisterFormData) => {
+    setIsRegisterLoading(true);
+    try {
+      await registerMutation.mutateAsync({
         username: data.username,
         email: data.email,
         password: data.password,
-      },
-      {
-        onSuccess: () => {
-          showToast("success", "Account created successfully! You can now login.");
-          registerForm.reset();
-        },
-        onError: (error: any) => {
-          showToast("error", error.response?.data?.message || "Registration failed. Please try again.");
-        },
-        onSettled: () => {
-          setIsLoading(false);
-        },
-      }
-    );
+      });
+      showToast("success", "Account created successfully! You can now login.");
+      registerForm.reset();
+    } catch (err: unknown) {
+      const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
+      showToast("error", msg || "Registration failed. Please try again.");
+    } finally {
+      setIsRegisterLoading(false);
+    }
   };
 
   return (
@@ -189,9 +181,9 @@ export default function AuthForm() {
                   <Button
                     onClick={loginForm.handleSubmit(onLogin)}
                     className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-medium shadow-lg shadow-blue-500/20 transition-all"
-                    disabled={isLoading}
+                    disabled={isLoginLoading}
                   >
-                    {isLoading ? (
+                    {isLoginLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Signing in...
@@ -273,9 +265,9 @@ export default function AuthForm() {
                   <Button
                     onClick={registerForm.handleSubmit(onRegister)}
                     className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-medium shadow-lg shadow-blue-500/20 transition-all"
-                    disabled={isLoading || registerMutation.isPending}
+                    disabled={isRegisterLoading || registerMutation.isPending}
                   >
-                    {isLoading || registerMutation.isPending ? (
+                    {isRegisterLoading || registerMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Creating account...

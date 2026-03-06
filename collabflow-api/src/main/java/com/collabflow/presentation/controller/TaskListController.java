@@ -1,12 +1,8 @@
 package com.collabflow.presentation.controller;
 
-import com.collabflow.domain.project.exception.ProjectException;
-import com.collabflow.domain.project.exception.ProjectNotFoundException;
 import com.collabflow.domain.tasklist.dto.TaskListCreateRequest;
 import com.collabflow.domain.tasklist.dto.TaskListResponse;
 import com.collabflow.domain.tasklist.dto.TaskListUpdateRequest;
-import com.collabflow.domain.tasklist.exception.TaskListException;
-import com.collabflow.domain.tasklist.exception.TaskListNotFoundException;
 import com.collabflow.domain.tasklist.service.TaskListService;
 import com.collabflow.domain.user.model.User;
 import com.collabflow.security.CustomUserDetails;
@@ -14,8 +10,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.messaging.handler.annotation.support.MethodArgumentTypeMismatchException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -98,46 +92,5 @@ public class TaskListController {
         taskListService.reorderTaskLists(projectId, orderedListIds, user);
 
         return ResponseEntity.ok().build();
-    }
-
-    @ExceptionHandler(ProjectNotFoundException.class)
-    public ResponseEntity<String> handleProjectNotFound(ProjectNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
-    }
-
-    @ExceptionHandler(ProjectException.class)
-    public ResponseEntity<String> handleProjectException(ProjectException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
-    }
-
-    // TaskList exceptions - NEW
-    @ExceptionHandler(TaskListNotFoundException.class)
-    public ResponseEntity<String> handleTaskListNotFound(TaskListNotFoundException ex) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
-    }
-
-    @ExceptionHandler(TaskListException.class)
-    public ResponseEntity<String> handleTaskListException(TaskListException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
-    }
-
-    // Validation and parsing exceptions
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<String> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
-        String message = "Invalid request body: " + ex.getMostSpecificCause().getMessage();
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(message);
-    }
-
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<String> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        String message = String.format("Invalid parameter '%s': %s",
-                ex.getMessage(),
-                ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(message);
-    }
-
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<String> handleRuntimeException(RuntimeException ex) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
     }
 }

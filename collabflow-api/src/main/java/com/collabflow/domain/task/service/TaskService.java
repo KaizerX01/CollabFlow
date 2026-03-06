@@ -25,7 +25,7 @@ import com.collabflow.domain.team.model.enums.TeamRole;
 import com.collabflow.domain.team.repository.TeamRepository;
 import com.collabflow.domain.user.model.User;
 import com.collabflow.domain.user.repository.UserRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 public class TaskService {
 
     private final TaskRepository taskRepository;
@@ -50,6 +50,7 @@ public class TaskService {
     // -------------------------
     // CREATE TASK (with optional assignees)
     // -------------------------
+    @Transactional
     public TaskResponse createTask(UUID taskListId, TaskCreateRequest request, User user) {
         TaskList taskList = getTaskList(taskListId);
         Map<UUID, Project> projectCache = new HashMap<>();
@@ -145,6 +146,7 @@ public class TaskService {
     // -------------------------
     // UPDATE TASK (and optionally sync assignees)
     // -------------------------
+    @Transactional
     public TaskResponse updateTask(UUID taskId, TaskUpdateRequest request, User user) {
         Task task = getTask(taskId);
         Map<UUID, Team> teamCache = new HashMap<>();
@@ -171,6 +173,7 @@ public class TaskService {
     // -------------------------
     // MOVE TASK (same as your previous logic, keep behavior)
     // -------------------------
+    @Transactional
     public TaskResponse moveTask(UUID taskId, UUID newTaskListId, Double newPosition, User user) {
         Task task = getTask(taskId);
         TaskList newTaskList = getTaskList(newTaskListId);
@@ -223,6 +226,7 @@ public class TaskService {
     // -------------------------
     // TOGGLE COMPLETE (shortcut)
     // -------------------------
+    @Transactional
     public TaskResponse toggleComplete(UUID taskId, User user) {
         Task task = getTask(taskId);
         Map<UUID, Team> teamCache = new HashMap<>();
@@ -236,6 +240,7 @@ public class TaskService {
     // -------------------------
     // DELETE (soft)
     // -------------------------
+    @Transactional
     public void deleteTask(UUID taskId, User user) {
         Task task = getTask(taskId);
         Map<UUID, Team> teamCache = new HashMap<>();

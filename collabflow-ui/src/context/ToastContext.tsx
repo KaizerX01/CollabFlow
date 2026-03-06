@@ -18,8 +18,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const showToast = useCallback((type: ToastType, message: string) => {
-    const id = Date.now().toString();
-    setToasts((prev) => [...prev, { id, type, message }]);
+    const id = crypto.randomUUID();
+    setToasts((prev) => {
+      const updated = [...prev, { id, type, message }];
+      return updated.length > 5 ? updated.slice(-5) : updated;
+    });
   }, []);
 
   const removeToast = useCallback((id: string) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, lazy } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,17 +13,20 @@ import {
   Zap,
 } from 'lucide-react';
 import { useTeamProjects } from '../hooks/useProjects';
-import { PremiumBackground } from '../components/PremiumBackground';
 import { ProjectCard } from '../components/ProjectCard';
 import { CreateProjectDialog } from '../components/CreateProjectDialog';
 import { EditProjectDialog } from '../components/EditProjectDialog';
 import { DeleteProjectDialog } from '../components/DeleteProjectDialog';
 import type { ProjectResponse } from '../api/projects';
 
+const PremiumBackground = lazy(() =>
+  import('../components/PremiumBackground').then((m) => ({ default: m.PremiumBackground }))
+);
+
 export const ProjectDetails: React.FC = () => {
   const { teamId } = useParams<{ teamId: string }>();
   const navigate = useNavigate(); // ✅ ADD THIS
-  const { data: projects, isLoading, error } = useTeamProjects(teamId!);
+  const { data: projects, isLoading, error } = useTeamProjects(teamId || '');
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editProject, setEditProject] = useState<ProjectResponse | null>(null);
@@ -52,7 +55,7 @@ export const ProjectDetails: React.FC = () => {
               <div className="flex items-center justify-between">
                 {/* Left: Back button + Title */}
                 <div className="flex items-center gap-6">
-                  <Link to="/teams">
+                  <Link to={`/teams/${teamId}`}>
                     <motion.button
                       whileHover={{ scale: 1.05, x: -5 }}
                       whileTap={{ scale: 0.95 }}

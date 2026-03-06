@@ -5,7 +5,6 @@ import com.collabflow.domain.tasklist.model.TaskList;
 import com.collabflow.domain.user.model.User;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.GenericGenerator;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -20,8 +19,7 @@ import java.util.UUID;
 public class Task {
 
     @Id
-    @GeneratedValue(generator = "UUID")
-    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(columnDefinition = "UUID")
     private UUID id;
 
@@ -77,8 +75,6 @@ public class Task {
     protected void onCreate() {
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
-        if (this.isDeleted == false) this.isDeleted = false;
-        if (this.isCompleted == false) this.isCompleted = false;
         if (this.priority == null) this.priority = 0;
         if (this.position == null) this.position = 0.0;
     }

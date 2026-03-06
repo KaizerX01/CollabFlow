@@ -9,12 +9,16 @@ interface SortableColumnProps {
   list: TaskListResponse;
   projectId: string;
   onCreateTask: () => void;
+  searchQuery?: string;
+  filterPriority?: number | null;
 }
 
 export const SortableColumn: React.FC<SortableColumnProps> = ({
   list,
   projectId,
   onCreateTask,
+  searchQuery,
+  filterPriority,
 }) => {
   const {
     attributes,
@@ -45,6 +49,8 @@ export const SortableColumn: React.FC<SortableColumnProps> = ({
         onCreateTask={onCreateTask}
         dragHandleProps={{ ...attributes, ...listeners }}
         isDragging={isDragging}
+        searchQuery={searchQuery}
+        filterPriority={filterPriority}
       />
     </div>
   );
