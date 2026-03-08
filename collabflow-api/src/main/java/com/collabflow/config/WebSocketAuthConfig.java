@@ -1,5 +1,6 @@
 package com.collabflow.config;
 
+import com.collabflow.domain.presence.service.PresenceService;
 import com.collabflow.security.CustomUserDetails;
 import com.collabflow.security.CustomUserDetailsService;
 import com.collabflow.security.JwtUtils;
@@ -41,6 +42,7 @@ public class WebSocketAuthConfig implements WebSocketMessageBrokerConfigurer {
 
     private final JwtUtils jwtUtils;
     private final CustomUserDetailsService userDetailsService;
+    private final PresenceService presenceService;
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
@@ -68,6 +70,8 @@ public class WebSocketAuthConfig implements WebSocketMessageBrokerConfigurer {
                                     );
 
                             accessor.setUser(auth);
+                            CustomUserDetails customUserDetails = (CustomUserDetails) userDetails;
+                            presenceService.markSessionOnline(customUserDetails.getUser().getId(), accessor.getSessionId());
                             log.info("✅ WebSocket CONNECT authenticated for user: {}", username);
                         } else {
                             log.warn("❌ WebSocket CONNECT rejected – invalid or expired token");

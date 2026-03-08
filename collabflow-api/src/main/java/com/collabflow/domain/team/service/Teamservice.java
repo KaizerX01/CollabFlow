@@ -15,6 +15,12 @@ import com.collabflow.domain.team.repository.TeamRepository;
 import com.collabflow.domain.user.exception.UserNotFoundException;
 import com.collabflow.domain.user.model.User;
 import com.collabflow.domain.user.repository.UserRepository;
+import com.collabflow.events.model.DomainEvent;
+import com.collabflow.events.model.DomainEventType;
+import com.collabflow.events.publisher.DomainEventPublisher;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,12 +46,15 @@ public class TeamService {
     private final TeamRepository teamRepository;
     private final TeamInviteRepository teamInviteRepository;
     private final UserRepository userRepository;
+    private final DomainEventPublisher domainEventPublisher;
 
 
+    @Cacheable(cacheNames = "teamsByUser", key = "#id")
     public List<Team> getTeams(UUID id){
         return teamRepository.findAllByUserId(id);
     }
 
+    @Cacheable(cacheNames = "teamByIdAndUser", key = "#teamId.toString() + ':' + #userId.toString()")
     public Team getTeamById(UUID teamId, UUID userId) {
         // Use fetch-join query to avoid N+1
         Team team = teamRepository.findByIdWithMembershipsAndUsers(teamId)
@@ -63,6 +72,13 @@ public class TeamService {
     }
 
     @Transactional
+        @Caching(evict = {
+            @CacheEvict(cacheNames = "teamsByUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamByIdAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamMembersByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "projectsByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
+        })
     public Team addTeam(User user, TeamRequest req) {
         // Step 1: Create and save the team first
         Team team = new Team();
@@ -95,6 +111,13 @@ public class TeamService {
 
 
     @Transactional
+        @Caching(evict = {
+            @CacheEvict(cacheNames = "teamsByUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamByIdAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamMembersByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "projectsByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
+        })
     public Team updateTeam(UUID teamId, UUID userId, TeamRequest req) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new TeamNotFoundException("Team not found"));
@@ -122,6 +145,13 @@ public class TeamService {
     }
 
     @Transactional
+        @Caching(evict = {
+            @CacheEvict(cacheNames = "teamsByUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamByIdAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamMembersByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "projectsByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
+        })
     public void deleteTeam(UUID teamId, UUID userId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new TeamNotFoundException("Team not found"));
@@ -140,6 +170,7 @@ public class TeamService {
     }
 
 
+    @Cacheable(cacheNames = "teamMembersByTeamAndUser", key = "#teamId.toString() + ':' + #userId.toString()")
     public Set<TeamMembership> getTeamMemberships(UUID userId, UUID teamId) {
         Team team = getTeam(teamId);
 
@@ -155,6 +186,13 @@ public class TeamService {
     }
 
     @Transactional
+        @Caching(evict = {
+            @CacheEvict(cacheNames = "teamsByUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamByIdAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamMembersByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "projectsByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
+        })
     public String createInviteLink(UUID teamId, UUID userId) {
         Team team = getTeam(teamId);
 
@@ -179,13 +217,34 @@ public class TeamService {
         invite.setIsActive(true);
         invite.setCreatedAt(Instant.now());
 
-        teamInviteRepository.save(invite);
+        TeamInvite savedInvite = teamInviteRepository.save(invite);
+
+        domainEventPublisher.publish(DomainEvent.builder()
+            .eventType(DomainEventType.TEAM_MEMBER_INVITED)
+            .aggregateType("TeamInvite")
+            .aggregateId(savedInvite.getId())
+            .actorId(membership.getUser().getId())
+            .actorUsername(membership.getUser().getUsername())
+            .teamId(team.getId())
+            .payload(java.util.Map.of(
+                "teamName", team.getName(),
+                "inviteToken", savedInvite.getToken(),
+                "expiresAt", savedInvite.getExpiresAt().toString()
+            ))
+            .build());
 
         // Return the invite URL
         return String.format("%s/invite/%s", frontendBaseUrl, invite.getToken());
     }
 
     @Transactional
+        @Caching(evict = {
+            @CacheEvict(cacheNames = "teamsByUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamByIdAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamMembersByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "projectsByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
+        })
     public Team joinTeamByInvite(String token, UUID userId) {
         TeamInvite invite = teamInviteRepository.findByTokenAndIsActiveTrue(token)
                 .orElseThrow(() -> new TeamException("Invalid or expired invite link"));
@@ -219,15 +278,36 @@ public class TeamService {
 
         team.getTeamMemberships().add(membership);
 
-        teamRepository.save(team);
+        Team savedTeam = teamRepository.save(team);
 
-        return team;
+        domainEventPublisher.publish(DomainEvent.builder()
+            .eventType(DomainEventType.TEAM_MEMBER_JOINED)
+            .aggregateType("TeamMembership")
+            .aggregateId(membership.getId().getUserId())
+            .actorId(user.getId())
+            .actorUsername(user.getUsername())
+            .teamId(team.getId())
+            .payload(java.util.Map.of(
+                "teamName", team.getName(),
+                "userId", user.getId().toString(),
+                "username", user.getUsername()
+            ))
+            .build());
+
+        return savedTeam;
     }
 
 
 
 
     @Transactional
+        @Caching(evict = {
+            @CacheEvict(cacheNames = "teamsByUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamByIdAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamMembersByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "projectsByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
+        })
     public void updateMemberRole(UUID teamId, UUID targetUserId, String newRoleStr, User actingUser) {
 
         Team team = getTeam(teamId);
@@ -267,6 +347,13 @@ public class TeamService {
 
 
     @Transactional
+        @Caching(evict = {
+            @CacheEvict(cacheNames = "teamsByUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamByIdAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamMembersByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "projectsByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
+        })
     public void transferOwnership(UUID teamId, UUID newOwnerId, User currentUser) {
 
         Team team = getTeam(teamId);
@@ -301,6 +388,13 @@ public class TeamService {
 
 
     @Transactional
+        @Caching(evict = {
+            @CacheEvict(cacheNames = "teamsByUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamByIdAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamMembersByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "projectsByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
+        })
     public void removeMember(UUID teamId, UUID userId, User currentUser) {
         Team team = getTeam(teamId);
 
@@ -333,6 +427,13 @@ public class TeamService {
     }
 
     @Transactional
+        @Caching(evict = {
+            @CacheEvict(cacheNames = "teamsByUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamByIdAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "teamMembersByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "projectsByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
+        })
     public void leaveTeam(UUID teamId, User currentUser) {
         Team team = getTeam(teamId);
 

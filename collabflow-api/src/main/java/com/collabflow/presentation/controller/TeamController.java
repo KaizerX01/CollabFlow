@@ -1,5 +1,6 @@
 package com.collabflow.presentation.controller;
 
+import com.collabflow.domain.presence.service.PresenceService;
 import com.collabflow.domain.team.dto.TeamMemberResponse;
 import com.collabflow.domain.team.dto.TeamRequest;
 import com.collabflow.domain.team.dto.TeamResponse;
@@ -27,6 +28,7 @@ public class TeamController {
     private final TeamService teamService;
     private final TeamMapper teamMapper;
     private final TeamMemberMapper teamMemberMapper;
+    private final PresenceService presenceService;
 
     @GetMapping
     public ResponseEntity<List<TeamResponse>> findAll(
@@ -50,6 +52,7 @@ public class TeamController {
         User user = userDetails.getUser();
         var users = teamService.getTeamMemberships(user.getId(), id);
         var res = users.stream().map(teamMemberMapper::toDto).toList();
+        res.forEach(member -> member.setOnline(presenceService.isOnline(member.getId())));
 
         return ResponseEntity.ok(res);
     }

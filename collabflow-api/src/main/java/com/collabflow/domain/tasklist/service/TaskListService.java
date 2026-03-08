@@ -18,6 +18,9 @@ import com.collabflow.domain.team.model.TeamMembership;
 import com.collabflow.domain.team.model.enums.TeamRole;
 import com.collabflow.domain.team.repository.TeamRepository;
 import com.collabflow.domain.user.model.User;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,6 +41,7 @@ public class TaskListService {
     private final TaskListMapper mapper;
 
     @Transactional
+    @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
     public TaskListResponse createTaskList(UUID projectId, TaskListCreateRequest request, User user) {
         Project project = getProject(projectId);
 
@@ -68,6 +72,7 @@ public class TaskListService {
         return mapper.toResponse(saved);
     }
 
+    @Cacheable(cacheNames = "taskListsByProjectAndUser", key = "#projectId.toString() + ':' + #userId.toString()")
     public List<TaskListResponse> getProjectTaskLists(UUID projectId, UUID userId) {
         Project project = getProject(projectId);
         Team team = getTeam(project.getTeamId());
@@ -91,6 +96,7 @@ public class TaskListService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
     public TaskListResponse updateTaskList(UUID listId, TaskListUpdateRequest request, User user) {
         TaskList taskList = getTaskList(listId);
 
@@ -115,6 +121,7 @@ public class TaskListService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
     public void deleteTaskList(UUID listId, User user) {
         TaskList taskList = getTaskList(listId);
 
@@ -131,6 +138,7 @@ public class TaskListService {
     }
 
     @Transactional
+    @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
     public void reorderTaskLists(UUID projectId, List<UUID> orderedListIds, User user) {
         Project project = getProject(projectId);
         Team team = getTeam(project.getTeamId());

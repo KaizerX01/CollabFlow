@@ -14,6 +14,9 @@ import com.collabflow.domain.team.exception.TeamNotFoundException;
 import com.collabflow.domain.team.model.Team;
 import com.collabflow.domain.team.repository.TeamRepository;
 import com.collabflow.domain.user.model.User;
+import com.collabflow.events.model.DomainEvent;
+import com.collabflow.events.model.DomainEventType;
+import com.collabflow.events.publisher.DomainEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +46,7 @@ public class ChatService {
     private final ProjectRepository projectRepository;
     private final TeamRepository teamRepository;
     private final ChatMessageMapper mapper;
+    private final DomainEventPublisher domainEventPublisher;
 
     // ─── Queries ──────────────────────────────────────────────────────
 
@@ -99,6 +103,19 @@ public class ChatService {
 
         ChatMessage saved = chatMessageRepository.save(message);
 
+        domainEventPublisher.publish(DomainEvent.builder()
+            .eventType(DomainEventType.CHAT_MESSAGE_SENT)
+            .aggregateType("ChatMessage")
+            .aggregateId(saved.getId())
+            .actorId(user.getId())
+            .actorUsername(user.getUsername())
+            .teamId(project.getTeamId())
+            .projectId(project.getId())
+            .payload(java.util.Map.of(
+                "contentPreview", abbreviate(saved.getContent(), 80)
+            ))
+            .build());
+
         log.info("💬 Chat message saved – project={}, sender={}", projectId, user.getUsername());
 
         return mapper.toResponse(saved);
@@ -136,4 +153,12 @@ public class ChatService {
         // Remove on-event handlers that might survive tag stripping
         result = result.replaceAll("(?i)on\\w+\\s*=", "");
         return result;
-    }}
+    }
+
+    private String abbreviate(String input, int maxLength) {
+        if (input == null || input.length() <= maxLength) {
+            return input;
+        }
+        return input.substring(0, maxLength) + "...";
+    }
+}

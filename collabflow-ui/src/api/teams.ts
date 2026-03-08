@@ -14,6 +14,7 @@ export interface TeamMember {
   email: string;
   avatar?: string;
   role: 'OWNER' | 'ADMIN' | 'MEMBER';
+  online?: boolean;
 }
 
 export interface Team {

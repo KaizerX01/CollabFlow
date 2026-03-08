@@ -15,6 +15,12 @@ import com.collabflow.domain.team.model.TeamMembership;
 import com.collabflow.domain.team.model.enums.TeamRole;
 import com.collabflow.domain.team.repository.TeamRepository;
 import com.collabflow.domain.user.model.User;
+import com.collabflow.events.model.DomainEvent;
+import com.collabflow.events.model.DomainEventType;
+import com.collabflow.events.publisher.DomainEventPublisher;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,8 +38,14 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final TeamRepository teamRepository;
     private final ProjectMapper mapper;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Transactional
+        @Caching(evict = {
+            @CacheEvict(cacheNames = "projectsByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "projectByIdAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
+        })
     public ProjectResponse create(ProjectCreateRequest request, User user) {
         // Validate input
         if (request == null) {
@@ -70,9 +82,24 @@ public class ProjectService {
             throw new IllegalStateException("Mapper failed to create project response");
         }
 
+        domainEventPublisher.publish(DomainEvent.builder()
+            .eventType(DomainEventType.PROJECT_CREATED)
+            .aggregateType("Project")
+            .aggregateId(saved.getId())
+            .actorId(user.getId())
+            .actorUsername(user.getUsername())
+            .teamId(saved.getTeamId())
+            .projectId(saved.getId())
+            .payload(java.util.Map.of(
+                "projectName", saved.getName(),
+                "teamId", saved.getTeamId().toString()
+            ))
+            .build());
+
         return response;
     }
 
+    @Cacheable(cacheNames = "projectByIdAndUser", key = "#projectId.toString() + ':' + #userId.toString()")
     public ProjectResponse findById(UUID projectId, UUID userId) {
         Project project = getProject(projectId);
 
@@ -83,6 +110,7 @@ public class ProjectService {
         return mapper.toResponse(project);
     }
 
+    @Cacheable(cacheNames = "projectsByTeamAndUser", key = "#teamId.toString() + ':' + #userId.toString()")
     public List<ProjectResponse> findAllByTeam(UUID teamId, UUID userId) {
         // Verify user is a member of the team
         Team team = getTeam(teamId);
@@ -95,6 +123,11 @@ public class ProjectService {
     }
 
     @Transactional
+        @Caching(evict = {
+            @CacheEvict(cacheNames = "projectsByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "projectByIdAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
+        })
     public ProjectResponse update(UUID projectId, ProjectUpdateRequest request, User user) {
         // Validate input
         if (request == null) {
@@ -131,6 +164,11 @@ public class ProjectService {
     }
 
     @Transactional
+        @Caching(evict = {
+            @CacheEvict(cacheNames = "projectsByTeamAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "projectByIdAndUser", allEntries = true),
+            @CacheEvict(cacheNames = "taskListsByProjectAndUser", allEntries = true)
+        })
     public void delete(UUID projectId, User user) {
         // Validate input
         if (user == null) {

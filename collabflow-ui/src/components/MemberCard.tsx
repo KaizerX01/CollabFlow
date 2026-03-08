@@ -269,6 +269,13 @@ export const MemberCard: React.FC<MemberCardProps> = ({
             )}
             <div className="relative">
               <Avatar name={member.username} avatar={member.avatar} size="md" />
+              <motion.div
+                className={`absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-slate-900 ${
+                  member.online ? 'bg-emerald-500' : 'bg-slate-400'
+                }`}
+                animate={member.online ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+                transition={{ duration: 1.6, repeat: member.online ? Infinity : 0, ease: 'easeInOut' }}
+              />
               {isMemberOwner && (
                 <motion.div
                   className="absolute -bottom-1 -right-1 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full p-1 shadow-lg"
@@ -301,6 +308,9 @@ export const MemberCard: React.FC<MemberCardProps> = ({
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 truncate font-medium">
               {member.email}
+            </p>
+            <p className={`text-xs mt-0.5 font-medium ${member.online ? 'text-emerald-500' : 'text-slate-400 dark:text-slate-500'}`}>
+              {member.online ? 'Online' : 'Offline'}
             </p>
           </div>
         </div>

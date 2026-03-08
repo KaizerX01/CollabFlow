@@ -12,8 +12,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TeamMemberResponse {
-    UUID id;
-    String username;
-    String email;
-    TeamRole role;
+    private UUID id;
+    private String username;
+    private String email;
+    private TeamRole role;
+    private boolean online;
 }

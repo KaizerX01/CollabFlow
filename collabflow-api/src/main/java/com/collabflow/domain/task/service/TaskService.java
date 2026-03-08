@@ -25,6 +25,9 @@ import com.collabflow.domain.team.model.enums.TeamRole;
 import com.collabflow.domain.team.repository.TeamRepository;
 import com.collabflow.domain.user.model.User;
 import com.collabflow.domain.user.repository.UserRepository;
+import com.collabflow.events.model.DomainEvent;
+import com.collabflow.events.model.DomainEventType;
+import com.collabflow.events.publisher.DomainEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -46,6 +49,7 @@ public class TaskService {
     private final UserRepository userRepository;
     private final TaskAssignmentRepository assignmentRepository;
     private final TaskMapper mapper;
+    private final DomainEventPublisher domainEventPublisher;
 
     // -------------------------
     // CREATE TASK (with optional assignees)
@@ -90,6 +94,21 @@ public class TaskService {
             // reload saved to ensure assignments relationship available if needed
             saved = taskRepository.findById(saved.getId()).orElse(saved);
         }
+
+        domainEventPublisher.publish(DomainEvent.builder()
+            .eventType(DomainEventType.TASK_CREATED)
+            .aggregateType("Task")
+            .aggregateId(saved.getId())
+            .actorId(user.getId())
+            .actorUsername(user.getUsername())
+            .teamId(project.getTeamId())
+            .projectId(project.getId())
+            .payload(java.util.Map.of(
+                "taskTitle", saved.getTitle(),
+                "taskListId", taskList.getId().toString(),
+                "taskListName", taskList.getName() == null ? "Unknown" : taskList.getName()
+            ))
+            .build());
 
         return buildTaskResponse(saved, null);
     }
@@ -178,6 +197,7 @@ public class TaskService {
         Task task = getTask(taskId);
         TaskList newTaskList = getTaskList(newTaskListId);
         UUID oldTaskListId = task.getTaskList().getId();
+        String fromTaskListName = task.getTaskList().getName();
 
         Map<UUID, Project> projectCache = new HashMap<>();
         Map<UUID, Team> teamCache = new HashMap<>();
@@ -202,6 +222,23 @@ public class TaskService {
         task.setPosition(position);
 
         Task updated = taskRepository.save(task);
+
+        domainEventPublisher.publish(DomainEvent.builder()
+            .eventType(DomainEventType.TASK_MOVED)
+            .aggregateType("Task")
+            .aggregateId(updated.getId())
+            .actorId(user.getId())
+            .actorUsername(user.getUsername())
+            .teamId(project.getTeamId())
+            .projectId(project.getId())
+            .payload(java.util.Map.of(
+                "taskTitle", updated.getTitle(),
+                "fromTaskListId", oldTaskListId.toString(),
+                "fromTaskListName", fromTaskListName == null ? "Unknown" : fromTaskListName,
+                "toTaskListId", newTaskList.getId().toString(),
+                "toTaskListName", newTaskList.getName() == null ? "Unknown" : newTaskList.getName()
+            ))
+            .build());
 
         rebalancePositions(newTaskListId);
         if (!oldTaskListId.equals(newTaskListId)) {
