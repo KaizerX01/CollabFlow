@@ -22,10 +22,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -37,9 +34,8 @@ public class AuthController {
     private final UserMapper userMapper;
     private final RefreshTokenRepository refreshTokenRepository;
 
-    @org.springframework.beans.factory.annotation.Value("${app.cookie.secure:false}")
-    private boolean secureCookies;
-
+        @org.springframework.beans.factory.annotation.Value("${app.cookie.secure:false}")
+        private boolean secureCookies;
 
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request) throws AuthException {
@@ -64,23 +60,26 @@ public class AuthController {
                 result.getEmail()
         );
 
-        // ✅ Create refresh token cookie
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", result.getTokens().getRefreshToken())
-                .httpOnly(true)
-                .secure(secureCookies)
-                .path("/")
-                .maxAge(Duration.ofDays(30))
-                .sameSite("Strict")
-                .build();
+        ResponseCookie refreshCookie = buildSecureCookie(
+                "refreshToken",
+                result.getTokens().getRefreshToken(),
+                Duration.ofDays(30)
+        );
+        ResponseCookie accessCookie = buildSecureCookie(
+                "accessToken",
+                result.getTokens().getAccessToken(),
+                Duration.ofMillis(authService.getAccessTokenTtlMs())
+        );
 
         // ✅ Build response with user data
         AuthResponse response = new AuthResponse();
         response.setUser(userResponse);
-        response.setAccessToken(result.getTokens().getAccessToken());
+        response.setAccessToken(null);
         response.setTokenType("Bearer");
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                 .body(response);
     }
 
@@ -93,17 +92,21 @@ public class AuthController {
         try {
             AuthTokens newTokens = authService.refreshAccessToken(token);
 
-            ResponseCookie newCookie = ResponseCookie.from("refreshToken", newTokens.getRefreshToken())
-                    .httpOnly(true)
-                    .secure(secureCookies)
-                    .path("/")
-                    .maxAge(Duration.ofDays(30))
-                    .sameSite("Strict")
-                    .build();
+            ResponseCookie newRefreshCookie = buildSecureCookie(
+                    "refreshToken",
+                    newTokens.getRefreshToken(),
+                    Duration.ofDays(30)
+            );
+            ResponseCookie newAccessCookie = buildSecureCookie(
+                    "accessToken",
+                    newTokens.getAccessToken(),
+                    Duration.ofMillis(authService.getAccessTokenTtlMs())
+            );
 
             return ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, newCookie.toString())
-                    .body(new AuthResponse(newTokens.getAccessToken()));
+                    .header(HttpHeaders.SET_COOKIE, newRefreshCookie.toString())
+                    .header(HttpHeaders.SET_COOKIE, newAccessCookie.toString())
+                    .body(Map.of("message", "Token refreshed"));
 
         } catch (AuthException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
@@ -122,16 +125,23 @@ public class AuthController {
                     .ifPresent(refreshTokenRepository::delete);
         }
 
-        ResponseCookie clearCookie = ResponseCookie.from("refreshToken", "")
-                .httpOnly(true)
-                .secure(secureCookies)
-                .path("/")
-                .maxAge(0)
-                .build();
+        ResponseCookie clearRefreshCookie = buildSecureCookie("refreshToken", "", Duration.ZERO);
+        ResponseCookie clearAccessCookie = buildSecureCookie("accessToken", "", Duration.ZERO);
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, clearCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, clearRefreshCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, clearAccessCookie.toString())
                 .body("Logged out");
+    }
+
+    private ResponseCookie buildSecureCookie(String name, String value, Duration maxAge) {
+        return ResponseCookie.from(name, value)
+                .httpOnly(true)
+                                .secure(secureCookies)
+                .path("/")
+                .sameSite("Strict")
+                .maxAge(maxAge)
+                .build();
     }
 
 

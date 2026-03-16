@@ -17,7 +17,6 @@ export interface LoginRequest {
 // Response types
 export interface AuthResponse {
   user: User;
-  accessToken: string;
   tokenType: string;
 }
 

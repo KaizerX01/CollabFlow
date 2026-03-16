@@ -5,6 +5,7 @@ import com.collabflow.domain.notification.model.InAppNotification;
 import com.collabflow.domain.notification.repository.InAppNotificationRepository;
 import com.collabflow.events.model.DomainEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.http.HttpStatus;
@@ -70,16 +71,22 @@ public class NotificationService {
             return null;
         }
 
-        InAppNotification saved = inAppNotificationRepository.save(InAppNotification.builder()
-                .eventId(event.getEventId())
-                .eventType(event.getEventType())
-                .recipientId(recipientId)
-                .recipientUsername(recipientUsername)
-                .title(title)
-                .message(message)
-                .route(route)
-                .isRead(false)
-                .build());
+        InAppNotification saved;
+        try {
+            saved = inAppNotificationRepository.save(InAppNotification.builder()
+                    .eventId(event.getEventId())
+                    .eventType(event.getEventType())
+                    .recipientId(recipientId)
+                    .recipientUsername(recipientUsername)
+                    .title(title)
+                    .message(message)
+                    .route(route)
+                    .isRead(false)
+                    .build());
+        } catch (DataIntegrityViolationException ex) {
+            // Another consumer thread/instance inserted this notification first.
+            return null;
+        }
 
         InAppNotificationResponse response = toResponse(saved);
         messagingTemplate.convertAndSendToUser(recipientUsername, "/queue/notifications", response);

@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Client, type IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { chatApi, type ChatMessageResponse, type ChatMessageRequest } from '../api/chat';
-import { getAccessToken } from '../api/tokenStore';
 
 // ─── Query-key factory ───────────────────────────────────────────────────────
 
@@ -79,26 +78,11 @@ export function useChat({
   useEffect(() => {
     if (!projectId) return;
 
-    const token = getAccessToken();
-    if (!token) return;
-
     const wsUrl = import.meta.env.VITE_WS_URL || 'http://localhost:9090/ws';
 
     const stompClient = new Client({
       webSocketFactory: () =>
         new SockJS(wsUrl) as WebSocket,
-      connectHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
-      beforeConnect: () => {
-        // Refresh token before each (re)connect so reconnects use a valid JWT
-        const freshToken = getAccessToken();
-        if (freshToken) {
-          stompClient.connectHeaders = {
-            Authorization: `Bearer ${freshToken}`,
-          };
-        }
-      },
       reconnectDelay: 5000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,

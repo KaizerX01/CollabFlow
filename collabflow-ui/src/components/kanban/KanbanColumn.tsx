@@ -32,7 +32,6 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   projectId,
   onCreateTask,
   dragHandleProps,
-  isDragging = false,
   searchQuery = '',
   filterPriority = null,
 }) => {

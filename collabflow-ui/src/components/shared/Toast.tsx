@@ -5,7 +5,6 @@ import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
 export type ToastType = 'success' | 'error' | 'info';
 
 interface ToastProps {
-  id: string;
   type: ToastType;
   message: string;
   onClose: () => void;
@@ -37,7 +36,6 @@ const toastConfig = {
 };
 
 export const Toast: React.FC<ToastProps> = ({
-  id,
   type,
   message,
   onClose,
@@ -113,7 +111,6 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onRemove
         {toasts.map((toast) => (
           <div key={toast.id} className="pointer-events-auto">
             <Toast
-              id={toast.id}
               type={toast.type}
               message={toast.message}
               onClose={() => onRemove(toast.id)}

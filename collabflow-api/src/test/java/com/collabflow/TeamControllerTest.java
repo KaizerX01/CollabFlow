@@ -9,6 +9,7 @@ import com.collabflow.domain.team.mapper.TeamMemberMapper;
 import com.collabflow.domain.team.model.Team;
 import com.collabflow.domain.team.model.TeamMembership;
 import com.collabflow.domain.team.model.enums.TeamRole;
+import com.collabflow.domain.presence.service.PresenceService;
 import com.collabflow.domain.team.service.TeamService;
 import com.collabflow.domain.user.model.User;
 import com.collabflow.security.CustomUserDetails;
@@ -57,6 +58,9 @@ class TeamControllerExtendedTest {
 
     @MockBean
     private TeamMemberMapper teamMemberMapper;
+
+    @MockBean
+    private PresenceService presenceService;
 
     @Autowired
     private ObjectMapper objectMapper;

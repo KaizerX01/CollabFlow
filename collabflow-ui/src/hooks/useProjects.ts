@@ -4,7 +4,7 @@ import {
 } from '../api/projects'
 import type {  ProjectCreateRequest,
   ProjectUpdateRequest,
-  ProjectResponse,} from '../api/projects'
+} from '../api/projects'
 
 // Query keys
 export const projectKeys = {

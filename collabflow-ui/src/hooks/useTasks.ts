@@ -151,7 +151,7 @@ export const useMoveTask = (projectId: string) => {
 
 
 // Toggle task completion
-export const useToggleTaskComplete = (projectId: string, taskListId?: string) => {
+export const useToggleTaskComplete = (projectId: string, _taskListId?: string) => {
   const queryClient = useQueryClient();
 
   return useMutation({

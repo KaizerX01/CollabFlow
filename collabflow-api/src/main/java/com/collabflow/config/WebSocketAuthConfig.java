@@ -21,6 +21,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
+import java.util.List;
+
 /**
  * Intercepts STOMP CONNECT frames to authenticate the user via JWT.
  *
@@ -53,38 +55,67 @@ public class WebSocketAuthConfig implements WebSocketMessageBrokerConfigurer {
                         MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
                 if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
+                    if (accessor.getUser() != null) {
+                        return message;
+                    }
+
                     String authHeader = accessor.getFirstNativeHeader("Authorization");
+                    String token = null;
 
                     if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                        String token = authHeader.substring(7);
+                        token = authHeader.substring(7);
+                    }
 
-                        if (jwtUtils.validateJwtToken(token) && jwtUtils.isAccessToken(token)) {
-                            String username = jwtUtils.getUsernameFromJwt(token);
-                            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                    if (token == null) {
+                        token = extractAccessTokenFromCookieHeader(accessor.getNativeHeader("cookie"));
+                    }
+                    if (token == null) {
+                        token = extractAccessTokenFromCookieHeader(accessor.getNativeHeader("Cookie"));
+                    }
 
-                            UsernamePasswordAuthenticationToken auth =
-                                    new UsernamePasswordAuthenticationToken(
-                                            userDetails,
-                                            null,
-                                            userDetails.getAuthorities()
-                                    );
+                    if (token != null && jwtUtils.validateJwtToken(token) && jwtUtils.isAccessToken(token)) {
+                        String username = jwtUtils.getUsernameFromJwt(token);
+                        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-                            accessor.setUser(auth);
-                            CustomUserDetails customUserDetails = (CustomUserDetails) userDetails;
-                            presenceService.markSessionOnline(customUserDetails.getUser().getId(), accessor.getSessionId());
-                            log.info("✅ WebSocket CONNECT authenticated for user: {}", username);
-                        } else {
-                            log.warn("❌ WebSocket CONNECT rejected – invalid or expired token");
-                            throw new IllegalArgumentException("Invalid or expired JWT token");
-                        }
+                        UsernamePasswordAuthenticationToken auth =
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails,
+                                        null,
+                                        userDetails.getAuthorities()
+                                );
+
+                        accessor.setUser(auth);
+                        CustomUserDetails customUserDetails = (CustomUserDetails) userDetails;
+                        presenceService.markSessionOnline(customUserDetails.getUser().getId(), accessor.getSessionId());
+                        log.info("✅ WebSocket CONNECT authenticated for user: {}", username);
                     } else {
-                        log.warn("❌ WebSocket CONNECT rejected – missing Authorization header");
-                        throw new IllegalArgumentException("Missing Authorization header");
+                        log.warn("❌ WebSocket CONNECT rejected – missing or invalid access token");
+                        throw new IllegalArgumentException("Missing or invalid access token");
                     }
                 }
 
                 return message;
             }
         });
+    }
+
+    private String extractAccessTokenFromCookieHeader(List<String> cookieHeaders) {
+        if (cookieHeaders == null) {
+            return null;
+        }
+        for (String header : cookieHeaders) {
+            if (header == null || header.isBlank()) {
+                continue;
+            }
+            String[] segments = header.split(";");
+            for (String segment : segments) {
+                String trimmed = segment.trim();
+                if (trimmed.startsWith("accessToken=")) {
+                    String value = trimmed.substring("accessToken=".length()).trim();
+                    return value.isBlank() ? null : value;
+                }
+            }
+        }
+        return null;
     }
 }

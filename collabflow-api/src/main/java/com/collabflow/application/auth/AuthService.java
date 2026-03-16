@@ -26,6 +26,9 @@ public class AuthService {
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
 
+    @org.springframework.beans.factory.annotation.Value("${app.jwtExpirationMs}")
+    private long jwtExpirationMs;
+
     public AuthResult authenticate(String identifier, String password) throws AuthException {
         log.debug("Authentication attempt for identifier: {}", identifier);
 
@@ -75,5 +78,9 @@ public class AuthService {
         refreshTokenRepository.save(stored);
 
         return new AuthTokens(newAccess, newRefresh);
+    }
+
+    public long getAccessTokenTtlMs() {
+        return jwtExpirationMs;
     }
 }

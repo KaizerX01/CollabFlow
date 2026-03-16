@@ -2,7 +2,6 @@ import React, { createContext, useCallback, useEffect, useMemo, useRef, useState
 import { Client, type IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { notificationsApi, type InAppNotification } from '../api/notifications';
-import { getAccessToken } from '../api/tokenStore';
 import { useAuth } from './AuthContext';
 import { useToast } from '../hooks/use-toast';
 
@@ -91,8 +90,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [loadInitial]);
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!currentUser || !token) {
+    if (!currentUser) {
       if (clientRef.current) {
         clientRef.current.deactivate();
         clientRef.current = null;
@@ -105,17 +103,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const client = new Client({
       webSocketFactory: () => new SockJS(wsUrl) as WebSocket,
-      connectHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
-      beforeConnect: () => {
-        const freshToken = getAccessToken();
-        if (freshToken) {
-          client.connectHeaders = {
-            Authorization: `Bearer ${freshToken}`,
-          };
-        }
-      },
       reconnectDelay: 5000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowRight, Users, Sparkles, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Card, Badge, Button } from './shared';
+import { Card, Button } from './shared';
 import type { Team } from '../api/teams';
 
 interface TeamCardProps {

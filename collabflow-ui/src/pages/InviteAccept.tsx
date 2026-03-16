@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, AlertCircle, Sparkles, Zap } from 'lucide-react';
+import { CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
 import { useAcceptInvite } from '../hooks/useTeams';
 import { Button } from '../components/shared';
 

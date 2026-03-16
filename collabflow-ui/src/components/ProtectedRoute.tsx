@@ -1,6 +1,5 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getAccessToken } from '../api/tokenStore';
 
 /**
  * Wrapper route that redirects unauthenticated users to /login.
@@ -14,7 +13,6 @@ import { getAccessToken } from '../api/tokenStore';
 export function ProtectedRoute() {
   const { currentUser, isLoading } = useAuth();
   const location = useLocation();
-  const token = getAccessToken();
 
   // Wait for auth state to resolve before deciding
   if (isLoading) {
@@ -25,8 +23,8 @@ export function ProtectedRoute() {
     );
   }
 
-  // User is authenticated if we have either a user object or a valid token
-  if (!currentUser && !token) {
+  // Cookie-auth model uses persisted user identity as route gate.
+  if (!currentUser) {
     // Preserve the attempted URL so we can redirect back after login
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

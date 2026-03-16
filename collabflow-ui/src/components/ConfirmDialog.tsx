@@ -1,8 +1,7 @@
 import React from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, Trash2, LogOut, Zap, X } from 'lucide-react';
-import { Button } from './shared';
+import { AlertTriangle, Trash2, Zap, X } from 'lucide-react';
 
 interface ConfirmDialogProps {
   open: boolean;

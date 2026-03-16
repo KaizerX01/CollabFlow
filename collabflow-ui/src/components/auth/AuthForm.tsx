@@ -9,8 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/ta
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Users, Loader2, Mail, Lock, User} from "lucide-react";
 import { useLogin, useRegister } from "../../hooks/useAuth";
-import { api } from "../../api/axiosInstance";
-import { setAccessToken } from "../../api/tokenStore";
 import { isAxiosError } from "axios";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from 'react-router-dom';
@@ -58,9 +56,6 @@ export default function AuthForm() {
   setIsLoginLoading(true);
   try {
     const res = await loginMutation.mutateAsync(data);
-
-    setAccessToken(res.accessToken);
-    api.defaults.headers.common["Authorization"] = `Bearer ${res.accessToken}`;
 
     if (res.user) {
       setUser(res.user);

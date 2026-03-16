@@ -1,7 +1,6 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onDrag' | 'onDragStart' | 'onDragEnd'> {
   variant?: 'primary' | 'secondary' | 'outline';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
@@ -23,24 +22,18 @@ const sizeStyles = {
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = 'primary', size = 'md', isLoading = false, children, disabled, className, ...props }, ref) => {
     return (
-      <motion.button
+      <button
         ref={ref}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
         disabled={disabled || isLoading}
         className={`rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles[variant]} ${sizeStyles[size]} ${className || ''}`}
         {...props}
       >
         {isLoading ? (
-          <motion.div
-            className="inline-block h-4 w-4 rounded-full border-2 border-current border-r-transparent"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity }}
-          />
+          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
         ) : (
           children
         )}
-      </motion.button>
+      </button>
     );
   }
 );

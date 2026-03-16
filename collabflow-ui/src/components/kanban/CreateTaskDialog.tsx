@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Plus, Loader2, Calendar, Flag, User } from 'lucide-react';
+import { X, Plus, Loader2, Calendar, Flag } from 'lucide-react';
 import { useCreateTask } from '../../hooks/useTasks';
 import { useToast } from '../../hooks/use-toast';
 

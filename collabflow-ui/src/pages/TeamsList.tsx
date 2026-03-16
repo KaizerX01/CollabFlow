@@ -162,7 +162,7 @@ export const TeamsList: React.FC = () => {
                 }}
                 className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
               >
-                {teams.map((team, index) => (
+                {teams.map((team) => (
                   <motion.div
                     key={team.id}
                     variants={{

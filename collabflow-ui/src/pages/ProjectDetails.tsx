@@ -8,7 +8,6 @@ import {
   Loader2,
   Sparkles,
   TrendingUp,
-  Users,
   Grid3x3,
   Zap,
 } from 'lucide-react';

@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import { clearAccessToken } from '../api/tokenStore';
 
 export interface User {
     id: string;
@@ -76,7 +75,6 @@ export const AuthProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }
     const clearUser = useCallback(() => {
         setCurrentUser(null);
         localStorage.removeItem(USER_STORAGE_KEY);
-        clearAccessToken();
     }, []);
 
     const value = useMemo(() => ({

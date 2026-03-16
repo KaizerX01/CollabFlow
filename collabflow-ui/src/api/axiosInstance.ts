@@ -1,5 +1,4 @@
 import axios from "axios";
-import { getAccessToken, setAccessToken, clearAccessToken } from "./tokenStore";
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:9090/api",
@@ -9,16 +8,16 @@ export const api = axios.create({
 let isRefreshing = false;
 
 interface QueueItem {
-  resolve: (token: string | null) => void;
+  resolve: () => void;
   reject: (error: unknown) => void;
 }
 
 let failedQueue: QueueItem[] = [];
 
-const processQueue = (error: unknown, token: string | null = null) => {
+const processQueue = (error: unknown) => {
   failedQueue.forEach((prom) => {
     if (error) prom.reject(error);
-    else prom.resolve(token);
+    else prom.resolve();
   });
 
   failedQueue = [];
@@ -32,7 +31,6 @@ api.interceptors.response.use(
     // ⛔ if refresh request itself failed → logout directly
     if (originalRequest.url?.includes("/auth/refresh")) {
       console.warn("Refresh token invalid — logging out.");
-      clearAccessToken();
       window.location.href = "/login";
       return Promise.reject(error);
     }
@@ -41,13 +39,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         // queue all failed requests until refresh finishes
-        return new Promise(function (resolve, reject) {
+        return new Promise<void>(function (resolve, reject) {
           failedQueue.push({ resolve, reject });
         })
-          .then((token) => {
-            originalRequest.headers["Authorization"] = `Bearer ${token}`;
-            return api(originalRequest);
-          })
+          .then(() => api(originalRequest))
           .catch((err) => Promise.reject(err));
       }
 
@@ -55,17 +50,12 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const res = await api.post("/auth/refresh");
-        const newAccessToken = res.data.accessToken;
-
-        setAccessToken(newAccessToken);
-        api.defaults.headers.common["Authorization"] = `Bearer ${newAccessToken}`;
-        processQueue(null, newAccessToken);
+        await api.post("/auth/refresh");
+        processQueue(null);
 
         return api(originalRequest);
       } catch (refreshErr) {
-        processQueue(refreshErr, null);
-        clearAccessToken();
+        processQueue(refreshErr);
         window.location.href = "/login"; // ⛔ log out safely
         return Promise.reject(refreshErr);
       } finally {
@@ -76,12 +66,5 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-// ✅ Attach access token for each request
-api.interceptors.request.use((config) => {
-  const token = getAccessToken();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
 
 export default api;
