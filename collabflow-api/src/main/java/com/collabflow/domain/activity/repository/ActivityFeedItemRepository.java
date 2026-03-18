@@ -11,4 +11,6 @@ public interface ActivityFeedItemRepository extends JpaRepository<ActivityFeedIt
     boolean existsByEventId(UUID eventId);
 
     List<ActivityFeedItem> findByTeamIdOrderByOccurredAtDesc(UUID teamId, Pageable pageable);
+
+    List<ActivityFeedItem> findByTeamIdInOrderByOccurredAtDesc(List<UUID> teamIds, Pageable pageable);
 }

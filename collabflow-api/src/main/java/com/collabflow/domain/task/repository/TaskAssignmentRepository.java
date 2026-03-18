@@ -24,6 +24,18 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignment, 
            """)
     List<TaskAssignment> findByTask_IdInWithUser(@Param("taskIds") List<UUID> taskIds);
 
+    @Query("""
+           SELECT ta
+           FROM TaskAssignment ta
+           JOIN FETCH ta.task t
+           JOIN FETCH t.project p
+           JOIN FETCH t.taskList tl
+           WHERE ta.user.id = :userId
+             AND t.isDeleted = false
+           ORDER BY t.dueDate ASC NULLS LAST
+           """)
+    List<TaskAssignment> findByUserIdWithTaskAndProject(@Param("userId") UUID userId);
+
     void deleteByTask_IdAndUser_Id(UUID taskId, UUID userId);
 
     boolean existsByTask_IdAndUser_Id(UUID taskId, UUID userId);

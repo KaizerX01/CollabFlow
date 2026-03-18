@@ -62,7 +62,7 @@ export default function AuthForm() {
     }
 
     showToast("success", "Login successful! Redirecting...");
-    navigate("/teams");
+    navigate("/dashboard");
   } catch (err: unknown) {
     const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
     showToast("error", msg || "Login failed. Please try again.");

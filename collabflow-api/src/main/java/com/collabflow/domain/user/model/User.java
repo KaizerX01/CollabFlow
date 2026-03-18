@@ -32,6 +32,15 @@ public class User {
     @Column(name = "password", nullable = false, length = 255)
     private String password;
 
+    @Column(name = "display_name", length = 100)
+    private String displayName;
+
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
+    @Column(name = "bio", length = 500)
+    private String bio;
+
     @ColumnDefault("now()")
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

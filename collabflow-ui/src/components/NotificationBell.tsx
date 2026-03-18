@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, CheckCheck, Circle } from 'lucide-react';
+import { Bell, CheckCheck, Circle, LayoutDashboard } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
@@ -27,8 +27,49 @@ export const NotificationBell: React.FC = () => {
     return null;
   }
 
+  const getInitials = () => {
+    const name = currentUser.displayName || currentUser.username || 'U';
+    return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
   return (
-    <div className="fixed right-6 bottom-6 z-[70]">
+    <div className="fixed right-6 bottom-6 z-[70] flex flex-col gap-3 items-center">
+      {/* User avatar / settings button */}
+      <motion.button
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.96 }}
+        onClick={() => navigate('/settings')}
+        className="relative h-11 w-11 rounded-xl border border-white/15 bg-slate-900/90 shadow-lg shadow-black/30 backdrop-blur-xl overflow-hidden"
+        aria-label="Settings"
+      >
+        {currentUser.avatarUrl ? (
+          <img
+            src={currentUser.avatarUrl}
+            alt="Avatar"
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        ) : (
+          <span className="flex items-center justify-center w-full h-full text-xs font-bold text-white bg-gradient-to-br from-blue-500 to-purple-600">
+            {getInitials()}
+          </span>
+        )}
+      </motion.button>
+
+      {/* Dashboard button */}
+      <motion.button
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.96 }}
+        onClick={() => navigate('/dashboard')}
+        className="relative h-11 w-11 rounded-xl border border-white/15 bg-slate-900/90 text-white shadow-lg shadow-black/30 backdrop-blur-xl flex items-center justify-center"
+        aria-label="Dashboard"
+      >
+        <LayoutDashboard className="h-5 w-5" />
+      </motion.button>
+
+      {/* Notification bell */}
       <motion.button
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.96 }}

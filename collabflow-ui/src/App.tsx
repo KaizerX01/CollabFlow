@@ -7,10 +7,12 @@ import { TeamsList } from './pages/TeamsList';
 import { TeamDetails } from './pages/TeamDetails';
 import { InviteAccept } from './pages/InviteAccept';
 import AuthForm from './components/auth/AuthForm';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProjectList } from './pages/ProjectsList';
 import { ProjectDetails } from './pages/ProjectDetails';
 import { KanbanWorkspace } from './pages/KanbanWorkspace';
+import { Dashboard } from './pages/Dashboard';
+import { ProfileSettings } from './pages/ProfileSettings';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { NotificationProvider } from './context/NotificationContext';
@@ -24,6 +26,11 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function SmartRedirect() {
+  const { currentUser } = useAuth();
+  return <Navigate to={currentUser ? "/dashboard" : "/login"} replace />;
+}
 
 function App() {
   return (
@@ -42,29 +49,35 @@ function App() {
                 {/* Public routes */}
                 <Route path="/login" element={<AuthForm />} />
                 <Route path="/invite/:token" element={<InviteAccept />} />
-                
+
                 {/* Protected routes — redirect to /login if unauthenticated */}
                 <Route element={<ProtectedRoute />}>
+                  {/* Dashboard */}
+                  <Route path="/dashboard" element={<Dashboard />} />
+
+                  {/* Settings */}
+                  <Route path="/settings" element={<ProfileSettings />} />
+
                   {/* Teams */}
                   <Route path="/teams" element={<TeamsList />} />
                   <Route path="/teams/:teamId" element={<TeamDetails />} />
-                  
+
                   {/* Projects - nested under teams */}
                   <Route path="/teams/:teamId/projects" element={<ProjectList />} />
                   <Route path="/teams/:teamId/projects/:projectId" element={<ProjectDetails />} />
-                  
+
                   {/* Kanban Workspace */}
-                  <Route 
-                    path="/teams/:teamId/projects/:projectId/workspace" 
-                    element={<KanbanWorkspace />} 
+                  <Route
+                    path="/teams/:teamId/projects/:projectId/workspace"
+                    element={<KanbanWorkspace />}
                   />
                 </Route>
-                
-                {/* Default redirect */}
-                <Route path="/" element={<Navigate to="/login" replace />} />
-                
+
+                {/* Default redirect — smart: dashboard if logged in, login if not */}
+                <Route path="/" element={<SmartRedirect />} />
+
                 {/* 404 catch-all */}
-                <Route path="*" element={<Navigate to="/login" replace />} />
+                <Route path="*" element={<SmartRedirect />} />
               </Routes>
               <NotificationBell />
               </Suspense>

@@ -54,11 +54,7 @@ public class AuthController {
         );
 
         // Convert AuthResult to UserResponse DTO (no password hash exposed)
-        UserResponse userResponse = new UserResponse(
-                result.getUserId(),
-                result.getUsername(),
-                result.getEmail()
-        );
+        UserResponse userResponse = userMapper.toDto(result.getUser());
 
         ResponseCookie refreshCookie = buildSecureCookie(
                 "refreshToken",

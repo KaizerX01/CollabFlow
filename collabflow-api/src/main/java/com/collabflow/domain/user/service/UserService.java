@@ -1,7 +1,9 @@
 package com.collabflow.domain.user.service;
 
 
+import com.collabflow.domain.user.dto.ChangePasswordRequest;
 import com.collabflow.domain.user.dto.RegisterRequest;
+import com.collabflow.domain.user.dto.UpdateProfileRequest;
 import com.collabflow.domain.user.exception.EmailAlreadyExistsException;
 import com.collabflow.domain.user.exception.UsernameException;
 import com.collabflow.domain.user.model.User;
@@ -12,6 +14,7 @@ import com.collabflow.events.publisher.DomainEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -62,5 +65,36 @@ public class UserService {
 
     public Optional<User> findById(UUID id) {
         return userRepository.findById(id);
+    }
+
+    @Transactional
+    public User updateProfile(UUID userId, UpdateProfileRequest req) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (req.getDisplayName() != null) {
+            user.setDisplayName(req.getDisplayName());
+        }
+        if (req.getBio() != null) {
+            user.setBio(req.getBio());
+        }
+        if (req.getAvatarUrl() != null) {
+            user.setAvatarUrl(req.getAvatarUrl());
+        }
+
+        return userRepository.save(user);
+    }
+
+    @Transactional
+    public void changePassword(UUID userId, ChangePasswordRequest req) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+
+        user.setPassword(passwordEncoder.encode(req.getNewPassword()));
+        userRepository.save(user);
     }
 }
