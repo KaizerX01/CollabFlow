@@ -81,6 +81,7 @@ public class TaskController {
                 taskId,
                 request.getNewTaskListId(),
                 request.getNewPosition(),
+            request.getExpectedVersion(),
                 userDetails.getUser()
         );
         return ResponseEntity.ok(response);

@@ -1,4 +1,4 @@
-import React, { lazy } from "react";
+import React, { lazy, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useDashboard } from "../hooks/useDashboard";
+import { useSearch } from "../hooks/useSearch";
+import { useUsageAnalytics } from "../hooks/useUsageAnalytics";
 import { Button } from "../components/shared";
 import { formatDistanceToNow } from "date-fns";
 
@@ -45,7 +47,7 @@ const staggerItem = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { type: "spring", stiffness: 300, damping: 30 },
+    transition: { type: "spring" as const, stiffness: 300, damping: 30 },
   },
 };
 
@@ -53,6 +55,28 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { data: dashboard, isLoading, error } = useDashboard();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTeamId, setSelectedTeamId] = useState("");
+
+  useEffect(() => {
+    if (!selectedTeamId && dashboard?.teams?.[0]?.id) {
+      setSelectedTeamId(dashboard.teams[0].id);
+    }
+  }, [dashboard?.teams, selectedTeamId]);
+
+  const { data: searchResults, isFetching: isSearchLoading } = useSearch(
+    selectedTeamId,
+    searchQuery,
+    ["task", "project", "activity"],
+    8
+  );
+
+  const { data: usageAnalytics } = useUsageAnalytics(selectedTeamId, 30);
+
+  const peakDaily = useMemo(() => {
+    const values = usageAnalytics?.daily?.map((point) => point.count) || [];
+    return Math.max(1, ...values);
+  }, [usageAnalytics]);
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -201,6 +225,111 @@ export const Dashboard: React.FC = () => {
                 </div>
               </motion.div>
             ))}
+          </motion.div>
+
+          {/* Search + Analytics */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-10"
+          >
+            <div className="xl:col-span-2 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+                <h2 className="text-lg font-semibold text-white">Global Search</h2>
+                <div className="sm:ml-auto flex gap-2">
+                  <select
+                    value={selectedTeamId}
+                    onChange={(event) => setSelectedTeamId(event.target.value)}
+                    className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  >
+                    {(dashboard?.teams || []).map((team) => (
+                      <option key={team.id} value={team.id} className="bg-slate-900">
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search tasks, projects, activity..."
+                    className="w-full sm:w-80 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                </div>
+              </div>
+
+              {searchQuery.trim().length < 2 ? (
+                <p className="text-sm text-slate-400">Type at least 2 characters to search indexed tasks, projects, and activity.</p>
+              ) : isSearchLoading ? (
+                <p className="text-sm text-slate-400">Searching...</p>
+              ) : searchResults?.items?.length ? (
+                <div className="space-y-2">
+                  {searchResults.items.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        if (item.resourceType === "project") {
+                          navigate(`/teams/${item.teamId}/projects/${item.projectId}`);
+                          return;
+                        }
+
+                        if (item.projectId) {
+                          navigate(`/teams/${item.teamId}/projects/${item.projectId}/workspace`);
+                          return;
+                        }
+
+                        navigate(`/teams/${item.teamId}`);
+                      }}
+                      className="w-full text-left bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 rounded-xl px-4 py-3 transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-medium text-white truncate">{item.title || "Untitled"}</p>
+                        <span className="text-[11px] uppercase tracking-wide text-blue-300 bg-blue-500/10 px-2 py-1 rounded-full border border-blue-500/20">
+                          {item.resourceType}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1 line-clamp-2">{item.description || "No description"}</p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">No indexed results for this query yet.</p>
+              )}
+            </div>
+
+            <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-2xl p-5">
+              <h2 className="text-lg font-semibold text-white mb-1">Usage Analytics</h2>
+              <p className="text-xs text-slate-400 mb-4">Rolling 30-day event activity</p>
+
+              <div className="mb-5">
+                <p className="text-xs text-slate-400">Total Events</p>
+                <p className="text-3xl font-bold text-white">{usageAnalytics?.totalEvents ?? 0}</p>
+              </div>
+
+              <div className="space-y-2 mb-5">
+                {(usageAnalytics?.byEventType || []).slice(0, 5).map((entry) => (
+                  <div key={entry.eventType} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-slate-300 truncate">{entry.eventType.replaceAll("_", " ")}</span>
+                    <span className="text-white font-semibold">{entry.count}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                {(usageAnalytics?.daily || []).slice(-7).map((point) => (
+                  <div key={point.day} className="flex items-center gap-2">
+                    <span className="w-10 text-[11px] text-slate-400">{point.day.slice(5)}</span>
+                    <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-400 to-blue-500"
+                        style={{ width: `${Math.max(4, (point.count / peakDaily) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="w-8 text-right text-xs text-slate-300">{point.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

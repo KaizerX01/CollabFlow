@@ -12,7 +12,6 @@ import {
   Camera,
   Mail,
   AtSign,
-  Calendar,
   Save,
   Lock,
   CheckCircle2,

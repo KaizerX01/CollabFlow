@@ -30,6 +30,9 @@ public class Project {
     @Column(name = "is_deleted")
     private boolean deleted = false;
 
+    @Version
+    private Long version;
+
     private Instant createdAt;
     private Instant updatedAt;
 

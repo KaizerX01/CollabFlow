@@ -13,6 +13,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TaskUpdateRequest {
+    private Long expectedVersion;
     private String title;
     private String description;
     private Double position;

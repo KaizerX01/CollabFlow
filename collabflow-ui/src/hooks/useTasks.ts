@@ -1,6 +1,7 @@
 // hooks/useTasks.ts
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { tasksApi } from '../api/tasks';
+import { isVersionConflictError } from '../lib/concurrency';
 import type {
   TaskCreateRequest,
   TaskUpdateRequest,
@@ -63,6 +64,64 @@ export const useUpdateTask = (projectId: string, taskListId?: string) => {
   return useMutation({
     mutationFn: ({ taskId, data }: { taskId: string; data: TaskUpdateRequest }) =>
       tasksApi.update(taskId, data),
+
+    onMutate: async ({ taskId, data }) => {
+      await queryClient.cancelQueries({ queryKey: taskKeys.all });
+
+      const snapshots = queryClient.getQueriesData({ queryKey: taskKeys.all });
+
+      queryClient.setQueriesData<TaskResponse[]>(
+        { queryKey: taskKeys.all },
+        (old) => {
+          if (!old) return old;
+          return old.map((task) =>
+            task.id === taskId
+              ? {
+                  ...task,
+                  ...(data.title !== undefined ? { title: data.title } : {}),
+                  ...(data.description !== undefined ? { description: data.description ?? null } : {}),
+                  ...(data.priority !== undefined ? { priority: data.priority } : {}),
+                  ...(data.dueDate !== undefined ? { dueDate: data.dueDate ?? null } : {}),
+                  ...(data.isCompleted !== undefined ? { completed: data.isCompleted } : {}),
+                }
+              : task
+          );
+        }
+      );
+
+      return { snapshots };
+    },
+
+    onError: (error, _variables, context) => {
+      if (isVersionConflictError(error)) {
+        const latest = error.response?.data?.latest as TaskResponse | undefined;
+        if (latest) {
+          queryClient.setQueryData(taskKeys.byId(latest.id), latest);
+          queryClient.setQueriesData<TaskResponse[]>(
+            { queryKey: taskKeys.byTaskList(latest.taskListId) },
+            (old) => {
+              if (!old) return [latest];
+              const without = old.filter((task) => task.id !== latest.id);
+              return [...without, latest].sort((a, b) => a.position - b.position);
+            }
+          );
+          queryClient.setQueriesData<TaskResponse[]>(
+            { queryKey: taskKeys.byProject(projectId) },
+            (old) => {
+              if (!old) return [latest];
+              const without = old.filter((task) => task.id !== latest.id);
+              return [...without, latest].sort((a, b) => a.position - b.position);
+            }
+          );
+          return;
+        }
+      }
+
+      context?.snapshots?.forEach(([key, data]: any) => {
+        queryClient.setQueryData(key, data);
+      });
+    },
+
     onSuccess: (updatedTask) => {
       // Invalidate only the affected task list and project, not all tasks globally
       queryClient.invalidateQueries({ queryKey: taskKeys.byTaskList(updatedTask.taskListId) });
@@ -136,6 +195,30 @@ export const useMoveTask = (projectId: string) => {
     },
 
     onError: (_err, _vars, ctx) => {
+      if (isVersionConflictError(_err)) {
+        const latest = _err.response?.data?.latest as TaskResponse | undefined;
+        if (latest) {
+          queryClient.setQueryData(taskKeys.byId(latest.id), latest);
+          queryClient.setQueriesData<TaskResponse[]>(
+            { queryKey: taskKeys.byTaskList(latest.taskListId) },
+            (old) => {
+              if (!old) return [latest];
+              const without = old.filter((task) => task.id !== latest.id);
+              return [...without, latest].sort((a, b) => a.position - b.position);
+            }
+          );
+          queryClient.setQueriesData<TaskResponse[]>(
+            { queryKey: taskKeys.byProject(projectId) },
+            (old) => {
+              if (!old) return [latest];
+              const without = old.filter((task) => task.id !== latest.id);
+              return [...without, latest].sort((a, b) => a.position - b.position);
+            }
+          );
+          return;
+        }
+      }
+
       ctx?.snapshots?.forEach(([key, data]: any) => {
         queryClient.setQueryData(key, data);
       });

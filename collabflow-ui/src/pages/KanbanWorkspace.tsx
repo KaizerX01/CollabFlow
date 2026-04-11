@@ -125,6 +125,7 @@ export const KanbanWorkspace: React.FC = () => {
           data: {
             newTaskListId: newListId,
             newPosition: computePosition(newListId),
+            expectedVersion: task.version,
           },
           currentTaskListId: task.taskListId,
         });
@@ -148,6 +149,7 @@ export const KanbanWorkspace: React.FC = () => {
           data: {
             newTaskListId: task.taskListId,
             newPosition,
+            expectedVersion: task.version,
           },
           currentTaskListId: task.taskListId,
         });
@@ -162,6 +164,7 @@ export const KanbanWorkspace: React.FC = () => {
           data: {
             newTaskListId: overTask.taskListId,
             newPosition,
+            expectedVersion: task.version,
           },
           currentTaskListId: task.taskListId,
         });

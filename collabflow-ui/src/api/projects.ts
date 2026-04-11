@@ -7,6 +7,7 @@ export interface ProjectCreateRequest {
 }
 
 export interface ProjectUpdateRequest {
+  expectedVersion?: number;
   name?: string;
   description?: string;
 }
@@ -17,6 +18,7 @@ export interface ProjectResponse {
   name: string;
   description: string | null;
   isDeleted: boolean;
+  version: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -17,6 +17,7 @@ public class ProjectResponse {
     private String name;
     private String description;
     private boolean isDeleted;
+    private long version;
     private Instant createdAt;
     private Instant updatedAt;
 }

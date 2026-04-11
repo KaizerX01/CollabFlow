@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { isVersionConflictError } from '../lib/concurrency';
 import {
   projectsApi,
 } from '../api/projects'
@@ -50,6 +51,57 @@ export const useUpdateProject = (teamId: string) => {
   return useMutation({
     mutationFn: ({ projectId, data }: { projectId: string; data: ProjectUpdateRequest }) =>
       projectsApi.update(projectId, data),
+
+    onMutate: async ({ projectId, data }) => {
+      await queryClient.cancelQueries({ queryKey: projectKeys.all });
+
+      const snapshots = queryClient.getQueriesData({ queryKey: projectKeys.all });
+
+      queryClient.setQueryData(projectKeys.byId(projectId), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          ...(data.name !== undefined ? { name: data.name } : {}),
+          ...(data.description !== undefined ? { description: data.description ?? null } : {}),
+        };
+      });
+
+      queryClient.setQueryData(projectKeys.byTeam(teamId), (old: any) => {
+        if (!Array.isArray(old)) return old;
+        return old.map((project: any) =>
+          project.id === projectId
+            ? {
+                ...project,
+                ...(data.name !== undefined ? { name: data.name } : {}),
+                ...(data.description !== undefined ? { description: data.description ?? null } : {}),
+              }
+            : project
+        );
+      });
+
+      return { snapshots };
+    },
+
+    onError: (error, _variables, context) => {
+      if (isVersionConflictError(error)) {
+        const latest = error.response?.data?.latest as any;
+        if (latest?.id) {
+          queryClient.setQueryData(projectKeys.byId(latest.id), latest);
+          queryClient.setQueryData(projectKeys.byTeam(teamId), (old: any) => {
+            if (!Array.isArray(old)) return old;
+            return old.map((project: any) =>
+              project.id === latest.id ? latest : project
+            );
+          });
+          return;
+        }
+      }
+
+      context?.snapshots?.forEach(([key, data]: any) => {
+        queryClient.setQueryData(key, data);
+      });
+    },
+
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: projectKeys.byTeam(teamId) });
       queryClient.invalidateQueries({ queryKey: projectKeys.byId(data.id) });

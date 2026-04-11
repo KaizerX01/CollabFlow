@@ -100,11 +100,31 @@ public class NotificationEventConsumer {
                     actor + " created project \"" + payload(event, "projectName") + "\".",
                     projectRoute(event)
             );
+                case PROJECT_UPDATED -> new NotificationBlueprint(
+                    "Project Updated",
+                    actor + " updated project \"" + payload(event, "projectName") + "\".",
+                    projectRoute(event)
+                );
+                case PROJECT_DELETED -> new NotificationBlueprint(
+                    "Project Deleted",
+                    actor + " deleted project \"" + payload(event, "projectName") + "\".",
+                    "/teams/" + event.getTeamId() + "/projects"
+                );
             case TASK_CREATED -> new NotificationBlueprint(
                     "Task Created",
                     actor + " created task \"" + payload(event, "taskTitle") + "\".",
                     workspaceRoute(event)
             );
+                case TASK_UPDATED -> new NotificationBlueprint(
+                    "Task Updated",
+                    actor + " updated task \"" + payload(event, "taskTitle") + "\".",
+                    workspaceRoute(event)
+                );
+                case TASK_DELETED -> new NotificationBlueprint(
+                    "Task Deleted",
+                    actor + " deleted task \"" + payload(event, "taskTitle") + "\".",
+                    workspaceRoute(event)
+                );
             case TASK_MOVED -> new NotificationBlueprint(
                     "Task Moved",
                     actor + " moved task \"" + payload(event, "taskTitle") + "\" to \""

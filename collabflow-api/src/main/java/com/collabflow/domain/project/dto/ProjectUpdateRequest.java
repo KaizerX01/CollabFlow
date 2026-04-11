@@ -9,6 +9,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ProjectUpdateRequest {
+    private Long expectedVersion;
     private String name;
     private String description;
 }

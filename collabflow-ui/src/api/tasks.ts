@@ -16,6 +16,7 @@ export interface TaskCreateRequest {
 }
 
 export interface TaskUpdateRequest {
+  expectedVersion?: number;
   title?: string;
   description?: string;
   position?: number;
@@ -28,6 +29,7 @@ export interface TaskUpdateRequest {
 export interface TaskMoveRequest {
   newTaskListId: string;
   newPosition: number;
+  expectedVersion?: number;
 }
 
 export interface TaskResponse {

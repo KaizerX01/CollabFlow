@@ -247,6 +247,7 @@ export const ProjectDetails: React.FC = () => {
           projectId={editProject.id}
           currentName={editProject.name}
           currentDescription={editProject.description || undefined}
+          currentVersion={editProject.version}
           teamId={teamId}
         />
       )}

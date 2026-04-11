@@ -17,4 +17,6 @@ public class TaskMoveRequest {
 
     @NotNull(message = "New position is required")
     private Double newPosition;
+
+    private Long expectedVersion;
 }

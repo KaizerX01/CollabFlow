@@ -21,6 +21,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { TaskResponse } from '../../api/tasks';
 import { useToast } from '../../hooks/use-toast';
 import { useProjectTaskLists } from '../../hooks/useTaskLists';
+import { getConflictMessage } from '../../lib/concurrency';
 
 interface TaskDetailDialogProps {
   task: TaskResponse;
@@ -59,6 +60,7 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
       await updateTask.mutateAsync({
         taskId: task.id,
         data: {
+          expectedVersion: task.version,
           title: title.trim(),
           description: description.trim() || undefined,
           priority: priority || undefined,
@@ -69,7 +71,7 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to update task:', error);
-      showToast('error', 'Could not update task.');
+      showToast('error', getConflictMessage(error, 'Could not update task.'));
     }
   };
 
@@ -116,11 +118,12 @@ export const TaskDetailDialog: React.FC<TaskDetailDialogProps> = ({
         data: {
           newTaskListId: newListId,
           newPosition: 1000,
+          expectedVersion: task.version,
         },
       });
       showToast('success', 'Task moved');
     } catch (err) {
-      showToast('error', 'Could not move task');
+      showToast('error', getConflictMessage(err, 'Could not move task'));
       setListId(task.taskListId);
     }
   };

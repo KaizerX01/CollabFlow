@@ -1,5 +1,6 @@
 package com.collabflow.domain.task.service;
 
+import com.collabflow.domain.common.exception.VersionConflictException;
 import com.collabflow.domain.project.exception.ProjectNotFoundException;
 import com.collabflow.domain.project.model.Project;
 import com.collabflow.domain.project.repository.ProjectRepository;
@@ -14,6 +15,7 @@ import com.collabflow.domain.task.model.TaskAssignment;
 import com.collabflow.domain.task.model.TaskAssignmentId;
 import com.collabflow.domain.task.repository.TaskAssignmentRepository;
 import com.collabflow.domain.task.repository.TaskRepository;
+import com.collabflow.domain.search.service.SearchIndexService;
 import com.collabflow.domain.tasklist.exception.TaskListNotFoundException;
 import com.collabflow.domain.tasklist.model.TaskList;
 import com.collabflow.domain.tasklist.repository.TaskListRepository;
@@ -50,6 +52,7 @@ public class TaskService {
     private final TaskAssignmentRepository assignmentRepository;
     private final TaskMapper mapper;
     private final DomainEventPublisher domainEventPublisher;
+    private final SearchIndexService searchIndexService;
 
     // -------------------------
     // CREATE TASK (with optional assignees)
@@ -94,6 +97,8 @@ public class TaskService {
             // reload saved to ensure assignments relationship available if needed
             saved = taskRepository.findById(saved.getId()).orElse(saved);
         }
+
+        searchIndexService.indexTask(saved);
 
         domainEventPublisher.publish(DomainEvent.builder()
             .eventType(DomainEventType.TASK_CREATED)
@@ -171,6 +176,16 @@ public class TaskService {
         Map<UUID, Team> teamCache = new HashMap<>();
         verifyTeamMembership(getTeamCached(task.getProject().getTeamId(), teamCache), user.getId());
 
+        if (request.getExpectedVersion() != null && !Objects.equals(task.getVersion(), request.getExpectedVersion())) {
+            throw new VersionConflictException(
+                    "Task",
+                    task.getId(),
+                    request.getExpectedVersion(),
+                    task.getVersion(),
+                    buildTaskResponse(task, null)
+            );
+        }
+
         if (request.getTitle() != null) task.setTitle(request.getTitle());
         if (request.getDescription() != null) task.setDescription(request.getDescription());
         if (request.getPosition() != null) task.setPosition(request.getPosition());
@@ -186,6 +201,23 @@ public class TaskService {
             saved = taskRepository.findById(saved.getId()).orElse(saved);
         }
 
+        searchIndexService.indexTask(saved);
+
+        domainEventPublisher.publish(DomainEvent.builder()
+            .eventType(DomainEventType.TASK_UPDATED)
+            .aggregateType("Task")
+            .aggregateId(saved.getId())
+            .actorId(user.getId())
+            .actorUsername(user.getUsername())
+            .teamId(saved.getProject().getTeamId())
+            .projectId(saved.getProject().getId())
+            .payload(java.util.Map.of(
+                "taskTitle", saved.getTitle(),
+                "taskListId", saved.getTaskList().getId().toString(),
+                "taskListName", saved.getTaskList().getName() == null ? "Unknown" : saved.getTaskList().getName()
+            ))
+            .build());
+
         return buildTaskResponse(saved, null);
     }
 
@@ -194,10 +226,25 @@ public class TaskService {
     // -------------------------
     @Transactional
     public TaskResponse moveTask(UUID taskId, UUID newTaskListId, Double newPosition, User user) {
+        return moveTask(taskId, newTaskListId, newPosition, null, user);
+    }
+
+    @Transactional
+    public TaskResponse moveTask(UUID taskId, UUID newTaskListId, Double newPosition, Long expectedVersion, User user) {
         Task task = getTask(taskId);
         TaskList newTaskList = getTaskList(newTaskListId);
         UUID oldTaskListId = task.getTaskList().getId();
         String fromTaskListName = task.getTaskList().getName();
+
+        if (expectedVersion != null && !Objects.equals(task.getVersion(), expectedVersion)) {
+            throw new VersionConflictException(
+                    "Task",
+                    task.getId(),
+                    expectedVersion,
+                    task.getVersion(),
+                    buildTaskResponse(task, null)
+            );
+        }
 
         Map<UUID, Project> projectCache = new HashMap<>();
         Map<UUID, Team> teamCache = new HashMap<>();
@@ -222,6 +269,8 @@ public class TaskService {
         task.setPosition(position);
 
         Task updated = taskRepository.save(task);
+
+        searchIndexService.indexTask(updated);
 
         domainEventPublisher.publish(DomainEvent.builder()
             .eventType(DomainEventType.TASK_MOVED)
@@ -271,6 +320,7 @@ public class TaskService {
 
         task.setCompleted(!task.isCompleted());
         Task updated = taskRepository.save(task);
+        searchIndexService.indexTask(updated);
         return buildTaskResponse(updated, null);
     }
 
@@ -285,6 +335,22 @@ public class TaskService {
 
         task.setDeleted(true);
         taskRepository.save(task);
+        searchIndexService.deleteTask(task.getId());
+
+        domainEventPublisher.publish(DomainEvent.builder()
+            .eventType(DomainEventType.TASK_DELETED)
+            .aggregateType("Task")
+            .aggregateId(task.getId())
+            .actorId(user.getId())
+            .actorUsername(user.getUsername())
+            .teamId(task.getProject().getTeamId())
+            .projectId(task.getProject().getId())
+            .payload(java.util.Map.of(
+                "taskTitle", task.getTitle(),
+                "taskListId", task.getTaskList().getId().toString(),
+                "taskListName", task.getTaskList().getName() == null ? "Unknown" : task.getTaskList().getName()
+            ))
+            .build());
     }
 
     // -------------------------

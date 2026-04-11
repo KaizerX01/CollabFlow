@@ -4,6 +4,7 @@ import { X, Edit3, Save, Loader2 } from 'lucide-react';
 import { useUpdateProject } from '../hooks/useProjects';
 import type { ProjectUpdateRequest } from '../api/projects';
 import { useToast } from '../hooks/use-toast';
+import { getConflictMessage } from '../lib/concurrency';
 
 interface EditProjectDialogProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface EditProjectDialogProps {
   projectId: string;
   currentName: string;
   currentDescription?: string;
+  currentVersion: number;
   teamId: string;
 }
 
@@ -20,6 +22,7 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
   projectId,
   currentName,
   currentDescription,
+  currentVersion,
   teamId,
 }) => {
   const [name, setName] = useState(currentName);
@@ -39,6 +42,7 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
     if (!name.trim()) return;
 
     const data: ProjectUpdateRequest = {
+      expectedVersion: currentVersion,
       name: name.trim(),
       description: description.trim() || undefined,
     };
@@ -49,7 +53,7 @@ export const EditProjectDialog: React.FC<EditProjectDialogProps> = ({
       onClose();
     } catch (error) {
       console.error('Failed to update project:', error);
-      showToast('error', 'Could not update project.');
+      showToast('error', getConflictMessage(error, 'Could not update project.'));
     }
   };
 

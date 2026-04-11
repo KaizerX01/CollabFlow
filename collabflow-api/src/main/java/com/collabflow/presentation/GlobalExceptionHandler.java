@@ -1,5 +1,6 @@
 package com.collabflow.presentation;
 
+import com.collabflow.domain.common.exception.VersionConflictException;
 import com.collabflow.domain.chat.exception.ChatException;
 import com.collabflow.domain.project.exception.ProjectException;
 import com.collabflow.domain.project.exception.ProjectNotFoundException;
@@ -13,6 +14,7 @@ import com.collabflow.domain.user.exception.UserNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -70,6 +72,29 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ChatException.class)
     public ResponseEntity<Map<String, String>> handleChatException(ChatException ex) {
         return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(VersionConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleVersionConflict(VersionConflictException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", ex.getMessage());
+        body.put("code", "VERSION_CONFLICT");
+        body.put("resourceType", ex.getResourceType());
+        body.put("resourceId", ex.getResourceId());
+        body.put("expectedVersion", ex.getExpectedVersion());
+        body.put("currentVersion", ex.getCurrentVersion());
+        body.put("latest", ex.getLatestState());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> handleOptimisticLocking(ObjectOptimisticLockingFailureException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", "The resource was modified by another user. Refresh and try again.");
+        body.put("code", "VERSION_CONFLICT");
+        body.put("resourceType", ex.getPersistentClassName());
+        body.put("resourceId", ex.getIdentifier());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     // ─── Validation errors → 400 ──────────────────────────────────────

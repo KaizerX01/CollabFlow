@@ -1,5 +1,6 @@
 package com.collabflow.domain.project.service;
 
+import com.collabflow.domain.common.exception.VersionConflictException;
 import com.collabflow.domain.project.dto.ProjectCreateRequest;
 import com.collabflow.domain.project.dto.ProjectResponse;
 import com.collabflow.domain.project.dto.ProjectUpdateRequest;
@@ -8,6 +9,7 @@ import com.collabflow.domain.project.exception.ProjectNotFoundException;
 import com.collabflow.domain.project.mapper.ProjectMapper;
 import com.collabflow.domain.project.model.Project;
 import com.collabflow.domain.project.repository.ProjectRepository;
+import com.collabflow.domain.search.service.SearchIndexService;
 import com.collabflow.domain.team.exception.TeamException;
 import com.collabflow.domain.team.exception.TeamNotFoundException;
 import com.collabflow.domain.team.model.Team;
@@ -39,6 +41,7 @@ public class ProjectService {
     private final TeamRepository teamRepository;
     private final ProjectMapper mapper;
     private final DomainEventPublisher domainEventPublisher;
+    private final SearchIndexService searchIndexService;
 
     @Transactional
         @Caching(evict = {
@@ -96,6 +99,8 @@ public class ProjectService {
             ))
             .build());
 
+        searchIndexService.indexProject(saved);
+
         return response;
     }
 
@@ -139,6 +144,16 @@ public class ProjectService {
 
         Project project = getProject(projectId);
 
+        if (request.getExpectedVersion() != null && !request.getExpectedVersion().equals(project.getVersion())) {
+            throw new VersionConflictException(
+                "Project",
+                project.getId(),
+                request.getExpectedVersion(),
+                project.getVersion(),
+                mapper.toResponse(project)
+            );
+        }
+
         // Verify user has permission (is owner or admin of the team)
         Team team = getTeam(project.getTeamId());
         TeamMembership membership = verifyTeamMembership(team, user.getId());
@@ -159,6 +174,22 @@ public class ProjectService {
         if (response == null) {
             throw new IllegalStateException("Mapper failed to create project response");
         }
+
+        domainEventPublisher.publish(DomainEvent.builder()
+            .eventType(DomainEventType.PROJECT_UPDATED)
+            .aggregateType("Project")
+            .aggregateId(updated.getId())
+            .actorId(user.getId())
+            .actorUsername(user.getUsername())
+            .teamId(updated.getTeamId())
+            .projectId(updated.getId())
+            .payload(java.util.Map.of(
+                "projectName", updated.getName(),
+                "teamId", updated.getTeamId().toString()
+            ))
+            .build());
+
+        searchIndexService.indexProject(updated);
 
         return response;
     }
@@ -188,6 +219,21 @@ public class ProjectService {
         project.setDeleted(true);
         project.setUpdatedAt(Instant.now());
         projectRepository.save(project);
+        searchIndexService.deleteProject(project.getId());
+
+        domainEventPublisher.publish(DomainEvent.builder()
+            .eventType(DomainEventType.PROJECT_DELETED)
+            .aggregateType("Project")
+            .aggregateId(project.getId())
+            .actorId(user.getId())
+            .actorUsername(user.getUsername())
+            .teamId(project.getTeamId())
+            .projectId(project.getId())
+            .payload(java.util.Map.of(
+                "projectName", project.getName(),
+                "teamId", project.getTeamId().toString()
+            ))
+            .build());
     }
 
     // Helper methods
